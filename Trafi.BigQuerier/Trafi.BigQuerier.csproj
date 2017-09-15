@@ -1,0 +1,18 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <PackageId>Trafi.BigQuerier</PackageId>
+    <PackageVersion>1.0.0</PackageVersion>
+    <Authors>Trafi</Authors>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <PackageProjectUrl>https://github.com/trafi/trafi-bigquerier</PackageProjectUrl>
+    <TargetFrameworks>netstandard1.6</TargetFrameworks>
+    <DebugType>full</DebugType>
+    <AssemblyName>Trafi.BigQuerier</AssemblyName>
+    <RootNamespace>Trafi.BigQuerier</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="JetBrains.Annotations" Version="10.4.0" />
+    <PackageReference Include="Google.Apis.Auth" Version="1.28.0" />
+    <PackageReference Include="Google.Cloud.BigQuery.V2" Version="1.0.0-beta17" />
+  </ItemGroup>
+</Project>
