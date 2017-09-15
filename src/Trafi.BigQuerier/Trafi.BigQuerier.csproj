@@ -3,8 +3,12 @@
     <PackageId>Trafi.BigQuerier</PackageId>
     <PackageVersion>1.0.4-beta1</PackageVersion>
     <Authors>Trafi</Authors>
+    <Copyright>2017 TRAFI</Copyright>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
     <PackageProjectUrl>https://github.com/trafi/big-querier</PackageProjectUrl>
+    <PackageLicenseUrl>https://raw.githubusercontent.com/trafi/big-querier/master/LICENSE</PackageLicenseUrl>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/trafi/big-querier</RepositoryUrl>
     <TargetFrameworks>netstandard1.6</TargetFrameworks>
     <DebugType>full</DebugType>
     <AssemblyName>Trafi.BigQuerier</AssemblyName>
