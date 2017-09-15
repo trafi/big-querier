@@ -2,6 +2,14 @@
 
 Big Queries for Simple People.
 
+## What it is
+
+Big Querier helps to automatically map objects to big query insert rows and vice-versa. Therefore, it can be thought of as simple ORM. However, there are 3 parts of big querier, each of them can be used separately:
+
+- __The Client__: A Big Query wrapper that simplifies query creation and result retrieval.
+- __The Contract__: A Row-to-object mapper, can convert object to row for insertion or selected row back to object.
+- __The Dispatcher Service__: A backend logger helper that dispatches logs to BigQuery in background.
+
 ## Client Usage
 
 ```c#
