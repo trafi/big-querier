@@ -100,16 +100,43 @@ namespace Trafi.BigQuerier
 
         public async Task<IAsyncEnumerable<BigQueryRow>> Query(string sql, CancellationToken ct)
         {
+            BigQueryJob job;
             try
             {
-                var job = await _client.CreateQueryJobAsync(sql, cancellationToken: ct);
+                job = await _client.CreateQueryJobAsync(sql, cancellationToken: ct);
+            }
+            catch (Exception ex)
+            {
+                throw new BigQuerierException($"Failed to create big query job for sql {sql}", ex);
+            }
+            
+            try
+            {
                 await job.PollUntilCompletedAsync(cancellationToken: ct);
-                var results = await job.GetQueryResultsAsync(cancellationToken: ct);
+            }
+            catch (Exception ex)
+            {
+                throw new BigQuerierException($"Failed to poll big query job to completion {sql}", ex);
+            }
+
+            BigQueryResults results;
+            
+            try
+            {
+                results = await job.GetQueryResultsAsync(cancellationToken: ct);
+            }
+            catch (Exception ex)
+            {
+                throw new BigQuerierException($"Failed to get job results {sql}", ex);
+            }
+
+            try
+            {
                 return results.GetRowsAsync();
             }
             catch (Exception ex)
             {
-                throw new BigQuerierException($"Failed to execute query job for sql {sql}", ex);
+                throw new BigQuerierException($"Failed to get rows {sql}", ex);
             }
         }
     }
