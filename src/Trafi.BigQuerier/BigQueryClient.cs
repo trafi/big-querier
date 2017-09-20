@@ -31,7 +31,8 @@ namespace Trafi.BigQuerier
             string certFileName,
             string certSecret,
             string email
-        ) {
+        )
+        {
             if (!File.Exists(certFileName))
             {
                 throw new BigQuerierException(
@@ -48,11 +49,11 @@ namespace Trafi.BigQuerier
             var serviceAccountCredential = new ServiceAccountCredential(
                 new ServiceAccountCredential.Initializer(email)
                 {
-                    Scopes = new[] { BigqueryService.Scope.CloudPlatform }
+                    Scopes = new[] {BigqueryService.Scope.CloudPlatform}
                 }.FromCertificate(certificate));
 
             InnerClient = new BigQueryClientImpl(
-                projectId, 
+                projectId,
                 new BigqueryService(new BaseClientService.Initializer()
                 {
                     HttpClientInitializer = serviceAccountCredential,
@@ -61,7 +62,11 @@ namespace Trafi.BigQuerier
             );
         }
 
-        public async Task DeleteTable(string datasetId, string tableId, CancellationToken ct)
+        public async Task DeleteTable(
+            string datasetId,
+            string tableId,
+            CancellationToken ct = default(CancellationToken)
+        )
         {
             try
             {
@@ -74,12 +79,13 @@ namespace Trafi.BigQuerier
         }
 
         public async Task<IBigQueryTableClient> GetTableClient(
-            string datasetId, 
-            string tableId, 
-            TableSchema schema, 
-            CancellationToken ct, 
-            CreateTableOptions createOptions = null
-        ) {
+            string datasetId,
+            string tableId,
+            TableSchema schema,
+            CreateTableOptions createOptions = null,
+            CancellationToken ct = default(CancellationToken)
+        )
+        {
             try
             {
                 var dataset = await InnerClient.GetOrCreateDatasetAsync(datasetId, cancellationToken: ct);
@@ -98,18 +104,22 @@ namespace Trafi.BigQuerier
             }
         }
 
-        public async Task<IAsyncEnumerable<BigQueryRow>> Query(string sql, CancellationToken ct)
+        public async Task<IAsyncEnumerable<BigQueryRow>> Query(
+            string sql,
+            QueryOptions options = null,
+            CancellationToken ct = default(CancellationToken)
+        )
         {
             BigQueryJob job;
             try
             {
-                job = await InnerClient.CreateQueryJobAsync(sql, cancellationToken: ct);
+                job = await InnerClient.CreateQueryJobAsync(sql, options: options, cancellationToken: ct);
             }
             catch (Exception ex)
             {
                 throw new BigQuerierException($"Failed to create big query job for sql {sql}", ex);
             }
-            
+
             try
             {
                 await job.PollUntilCompletedAsync(cancellationToken: ct);
@@ -120,7 +130,7 @@ namespace Trafi.BigQuerier
             }
 
             BigQueryResults results;
-            
+
             try
             {
                 results = await job.GetQueryResultsAsync(cancellationToken: ct);
