@@ -24,7 +24,7 @@ namespace Trafi.BigQuerier
     /// </summary>
     public class BigQueryClient : IBigQueryClient
     {
-        private readonly Google.Cloud.BigQuery.V2.BigQueryClient _client;
+        public Google.Cloud.BigQuery.V2.BigQueryClient InnerClient { get; }
 
         public BigQueryClient(
             string projectId,
@@ -51,7 +51,7 @@ namespace Trafi.BigQuerier
                     Scopes = new[] { BigqueryService.Scope.CloudPlatform }
                 }.FromCertificate(certificate));
 
-            _client = new BigQueryClientImpl(
+            InnerClient = new BigQueryClientImpl(
                 projectId, 
                 new BigqueryService(new BaseClientService.Initializer()
                 {
@@ -65,7 +65,7 @@ namespace Trafi.BigQuerier
         {
             try
             {
-                await _client.DeleteTableAsync(datasetId, tableId, cancellationToken: ct);
+                await InnerClient.DeleteTableAsync(datasetId, tableId, cancellationToken: ct);
             }
             catch (Exception ex)
             {
@@ -82,7 +82,7 @@ namespace Trafi.BigQuerier
         ) {
             try
             {
-                var dataset = await _client.GetOrCreateDatasetAsync(datasetId, cancellationToken: ct);
+                var dataset = await InnerClient.GetOrCreateDatasetAsync(datasetId, cancellationToken: ct);
                 var table = await dataset.GetOrCreateTableAsync(
                     tableId,
                     schema,
@@ -103,7 +103,7 @@ namespace Trafi.BigQuerier
             BigQueryJob job;
             try
             {
-                job = await _client.CreateQueryJobAsync(sql, cancellationToken: ct);
+                job = await InnerClient.CreateQueryJobAsync(sql, cancellationToken: ct);
             }
             catch (Exception ex)
             {

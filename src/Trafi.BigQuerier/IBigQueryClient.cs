@@ -15,6 +15,8 @@ namespace Trafi.BigQuerier
 {
     public interface IBigQueryClient
     {
+        Google.Cloud.BigQuery.V2.BigQueryClient InnerClient { get; }
+
         /// <summary>
         /// Gets or creates table and returns client to work with it.
         /// </summary>
@@ -25,13 +27,13 @@ namespace Trafi.BigQuerier
         /// <param name="createOptions">Create options</param>
         /// <returns>Table client</returns>
         Task<IBigQueryTableClient> GetTableClient(
-            string datasetId, 
-            string tableId, 
-            TableSchema schema, 
+            string datasetId,
+            string tableId,
+            TableSchema schema,
             CancellationToken ct,
             CreateTableOptions createOptions = null
         );
-        
+
         /// <summary>
         /// Execute a query.
         /// </summary>
