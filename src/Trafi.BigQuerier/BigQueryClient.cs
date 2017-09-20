@@ -116,7 +116,7 @@ namespace Trafi.BigQuerier
             }
             catch (Exception ex)
             {
-                throw new BigQuerierException($"Failed to poll big query job to completion {sql}", ex);
+                throw new BigQuerierException($"Failed to poll big query job to completion {sql}", ex, job.Status);
             }
 
             BigQueryResults results;
@@ -127,7 +127,7 @@ namespace Trafi.BigQuerier
             }
             catch (Exception ex)
             {
-                throw new BigQuerierException($"Failed to get job results {sql}", ex);
+                throw new BigQuerierException($"Failed to get job results {sql}", ex, job.Status);
             }
 
             try
