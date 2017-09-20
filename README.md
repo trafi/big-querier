@@ -133,7 +133,7 @@ var results = await contract.FromRowsAsync(
 );
 ```
 
-Is is possible to specify query options and cancellation token, both are optional.
+It is possible to specify query options and cancellation token, both are optional.
 As an example, we can fall back to Legacy Sql dialect (Google's BogQuery client uses Standard SQL by default):
 
 ```c#
