@@ -134,7 +134,7 @@ var results = await contract.FromRowsAsync(
 ```
 
 It is possible to specify query options and cancellation token, both are optional.
-As an example, we can fall back to Legacy Sql dialect (Google's BogQuery client uses Standard SQL by default):
+As an example, we can fall back to Legacy SQL dialect (Google's BigQuery client uses Standard SQL by default):
 
 ```c#
 using Google.Cloud.BigQuery.V2;
