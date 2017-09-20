@@ -23,24 +23,26 @@ namespace Trafi.BigQuerier
         /// <param name="datasetId">Dataset id</param>
         /// <param name="tableId">Table id</param>
         /// <param name="schema">Schema</param>
-        /// <param name="ct">Cancellation token</param>
         /// <param name="createOptions">Create options</param>
+        /// <param name="ct">Cancellation token</param>
         /// <returns>Table client</returns>
         Task<IBigQueryTableClient> GetTableClient(
             string datasetId,
             string tableId,
             TableSchema schema,
-            CancellationToken ct,
-            CreateTableOptions createOptions = null
+            CreateTableOptions createOptions = null,
+            CancellationToken ct = default(CancellationToken)
         );
 
         /// <summary>
         /// Execute a query.
         /// </summary>
         /// <param name="sql">SQL</param>
+        /// <param name="options">Query options</param>
         /// <param name="ct">Cancellation token</param>
         /// <returns>Rows</returns>
-        Task<IAsyncEnumerable<BigQueryRow>> Query(string sql, CancellationToken ct);
+        Task<IAsyncEnumerable<BigQueryRow>> Query(string sql, QueryOptions options = null,
+            CancellationToken ct = default(CancellationToken));
 
         /// <summary>
         /// Delete a table.
@@ -48,6 +50,6 @@ namespace Trafi.BigQuerier
         /// <param name="datasetId">Dataset id</param>
         /// <param name="tableId">Table id</param>
         /// <param name="ct">Cancellation token</param>
-        Task DeleteTable(string datasetId, string tableId, CancellationToken ct);
+        Task DeleteTable(string datasetId, string tableId, CancellationToken ct = default(CancellationToken));
     }
 }

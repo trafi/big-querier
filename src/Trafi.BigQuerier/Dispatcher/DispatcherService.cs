@@ -100,11 +100,11 @@ namespace Trafi.BigQuerier.Dispatcher
             {
                 if (_storageQueue.Count >= BatchSize)
                 {
-                    Save(BatchSize);
+                    Save(BatchSize, ct);
                 }
                 else if (DateTime.UtcNow.Subtract(_lastBatchSent) > _sendBatchInterval && !_storageQueue.IsEmpty)
                 {
-                    Save(_storageQueue.Count);
+                    Save(_storageQueue.Count, ct);
                 }
                 ct.WaitHandle.WaitOne(_storageRestDuration);
             }
@@ -112,11 +112,11 @@ namespace Trafi.BigQuerier.Dispatcher
             while (!_storageQueue.IsEmpty)
             {
                 var count = Math.Min(_storageQueue.Count, BatchSize);
-                Save(count);
+                Save(count, ct);
             }
         }
 
-        private void Save(int count)
+        private void Save(int count, CancellationToken ct = default(CancellationToken))
         {
             var items = new List<QueueItem>();
             for (var i = 0; i < count; i++)
@@ -124,11 +124,14 @@ namespace Trafi.BigQuerier.Dispatcher
                 if (_storageQueue.TryDequeue(out var item))
                     items.Add(item);
             }
-            Store(items);
+            Store(items, ct);
             _lastBatchSent = DateTime.UtcNow;
         }
 
-        private void Store(List<QueueItem> items)
+        private void Store(
+            IReadOnlyCollection<QueueItem> items,
+            CancellationToken ct = default(CancellationToken)
+        )
         {
             var sw = Stopwatch.StartNew();
             var traceId = Guid.NewGuid().ToString();
@@ -139,11 +142,11 @@ namespace Trafi.BigQuerier.Dispatcher
                 try
                 {
                     var client = _client.GetTableClient(_datasetId, tableName, _schema,
-                        CancellationToken.None).Result;
+                        ct: ct).Result;
 
                     _logger?.InsertRows(insertRows.Length, traceId);
 
-                    client.InsertRows(insertRows, CancellationToken.None).Wait();
+                    client.InsertRows(insertRows, CancellationToken.None).Wait(ct);
                 }
                 catch (Exception ex)
                 {
