@@ -35,7 +35,7 @@ And then insert a row:
 ```c#
 await table.InsertRows(new[] {
     new BigQueryInsertRow { ... }
-}, ct);
+});
 ```
 
 Or get the rows:
