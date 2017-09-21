@@ -126,7 +126,7 @@ await table.InsertRows(new[] {row});
 Contract helps to convert rows back to items:
 
 ```c#
-var rowsEnumerable = await client.Query(sql);
+var rowsEnumerable = await client.Query("SELECT * FROM dataset_id.table_id");
 var rows = await rowsEnumerable.Select(contract.FromRow).ToList();
 ```
 
@@ -138,7 +138,7 @@ using Google.Cloud.BigQuery.V2;
 
 var rowsEnumerable = await client
     .Query(
-        sql,
+        "SELECT * FROM dataset_id.table_id",
         options: new QueryOptions { UseLegacySql = true },
         ct: ct
     );
