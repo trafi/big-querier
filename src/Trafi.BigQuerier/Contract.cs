@@ -8,6 +8,7 @@
 using Google.Apis.Bigquery.v2.Data;
 using Google.Cloud.BigQuery.V2;
 using System.Collections.Generic;
+using System.Linq;
 using Trafi.BigQuerier.Mapper;
 using System.Threading.Tasks;
 using System.Threading;
@@ -16,11 +17,9 @@ namespace Trafi.BigQuerier
 {
     public class Contract<T>
     {
-        private readonly ContractCache _cache;
-
         private Contract(ContractCache cache)
         {
-            _cache = cache;
+            Cache = cache;
         }
 
         public static Contract<T> Create()
@@ -36,32 +35,18 @@ namespace Trafi.BigQuerier
             );
         }
 
-        public ContractCache Cache => _cache;
+        public ContractCache Cache { get; }
 
-        public TableSchema Schema => _cache.Schema;
+        public TableSchema Schema => Cache.Schema;
+
         public BigQueryInsertRow ToRow(T value)
         {
-            return (BigQueryInsertRow)_cache.ValueToRow(value);
+            return (BigQueryInsertRow) Cache.ValueToRow(value);
         }
 
         public T FromRow(BigQueryRow resultRow)
         {
-            return (T)_cache.ValueFromRow(resultRow);
-        }
-
-        public async Task<IEnumerable<T>> FromRowsAsync(IAsyncEnumerable<BigQueryRow> rows, CancellationToken ct)
-        {
-            var results = new List<T>();
-
-            using (var enumerator = rows.GetEnumerator())
-            {
-                while (await enumerator.MoveNext(ct))
-                {
-                    results.Add(FromRow(enumerator.Current));
-                }
-            }
-
-            return results;
+            return (T) Cache.ValueFromRow(resultRow);
         }
     }
 }
