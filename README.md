@@ -126,11 +126,8 @@ await table.InsertRows(new[] {row});
 Contract helps to convert rows back to items:
 
 ```c#
-var results = await contract.FromRowsAsync(
-    await client.Query(
-        "SELECT * FROM dataset_id.table_id"
-    )
-);
+var rowsEnumerable = await client.Query(sql);
+var rows = await rowsEnumerable.Select(contract.FromRow).ToList();
 ```
 
 It is possible to specify query options and cancellation token, both are optional.
@@ -139,15 +136,15 @@ As an example, we can fall back to Legacy SQL dialect (Google's BigQuery client 
 ```c#
 using Google.Cloud.BigQuery.V2;
 
-var rows = await _contract.FromRowsAsync(
-    await client.Query(
-        "SELECT * FROM dataset_id.table_id",
-        options: new QueryOptions
-        {
-            UseLegacySql = true,
-        },
-        ct: cancellationToken),
-    cancellationToken);
+var rowsEnumerable = await client
+    .Query(
+        sql,
+        options: new QueryOptions { UseLegacySql = true },
+        ct: ct
+    );
+var rows = await rowsEnumerable
+    .Select(contract.FromRow)
+    .ToList(ct);
 ```
 
 ## License
