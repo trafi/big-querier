@@ -56,6 +56,7 @@ namespace Trafi.BigQuerier.Dispatcher
             [NotNull] TableSchema schema,
             [NotNull] string datasetId,
             [NotNull] Func<DateTime, string> tableNameFun,
+            CreateTableOptions createTableOptions = null,
             IDispatchLogger logger = null)
         {
             _client = client;
@@ -66,7 +67,8 @@ namespace Trafi.BigQuerier.Dispatcher
 
             _tokenSource = new CancellationTokenSource();
             _consumeTask = Task.Factory.StartNew(() => RunConsume(_tokenSource.Token), TaskCreationOptions.LongRunning);
-            _storageTask = Task.Factory.StartNew(() => RunStorage(_tokenSource.Token), TaskCreationOptions.LongRunning);
+            _storageTask = Task.Factory.StartNew(() => RunStorage(createTableOptions, _tokenSource.Token),
+                TaskCreationOptions.LongRunning);
         }
 
         public void Dispatch(DateTime time, BigQueryInsertRow row)
@@ -94,17 +96,17 @@ namespace Trafi.BigQuerier.Dispatcher
             }
         }
 
-        private void RunStorage(CancellationToken ct)
+        private void RunStorage(CreateTableOptions createTableOptions, CancellationToken ct)
         {
             while (!ct.IsCancellationRequested)
             {
                 if (_storageQueue.Count >= BatchSize)
                 {
-                    Save(BatchSize, ct);
+                    Save(BatchSize, createTableOptions: createTableOptions, ct: ct);
                 }
                 else if (DateTime.UtcNow.Subtract(_lastBatchSent) > _sendBatchInterval && !_storageQueue.IsEmpty)
                 {
-                    Save(_storageQueue.Count, ct);
+                    Save(_storageQueue.Count, createTableOptions: createTableOptions, ct: ct);
                 }
                 ct.WaitHandle.WaitOne(_storageRestDuration);
             }
@@ -112,11 +114,12 @@ namespace Trafi.BigQuerier.Dispatcher
             while (!_storageQueue.IsEmpty)
             {
                 var count = Math.Min(_storageQueue.Count, BatchSize);
-                Save(count, ct);
+                Save(count, createTableOptions: createTableOptions, ct: ct);
             }
         }
 
-        private void Save(int count, CancellationToken ct = default(CancellationToken))
+        private void Save(int count, CreateTableOptions createTableOptions = null,
+            CancellationToken ct = default(CancellationToken))
         {
             var items = new List<QueueItem>();
             for (var i = 0; i < count; i++)
@@ -124,12 +127,13 @@ namespace Trafi.BigQuerier.Dispatcher
                 if (_storageQueue.TryDequeue(out var item))
                     items.Add(item);
             }
-            Store(items, ct);
+            Store(items, createTableOptions: createTableOptions, ct: ct);
             _lastBatchSent = DateTime.UtcNow;
         }
 
         private void Store(
             IReadOnlyCollection<QueueItem> items,
+            CreateTableOptions createTableOptions,
             CancellationToken ct = default(CancellationToken)
         )
         {
@@ -142,6 +146,7 @@ namespace Trafi.BigQuerier.Dispatcher
                 try
                 {
                     var client = _client.GetTableClient(_datasetId, tableName, _schema,
+                        createOptions: createTableOptions,
                         ct: ct).Result;
 
                     _logger?.InsertRows(insertRows.Length, traceId);
