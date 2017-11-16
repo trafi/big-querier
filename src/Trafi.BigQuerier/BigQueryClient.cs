@@ -62,6 +62,11 @@ namespace Trafi.BigQuerier
             );
         }
 
+        public BigQueryClient(Google.Cloud.BigQuery.V2.BigQueryClient bigQueryClient)
+        {
+            InnerClient = bigQueryClient;
+        }
+
         public async Task DeleteTable(
             string datasetId,
             string tableId,
