@@ -38,6 +38,8 @@ namespace Trafi.BigQuerier.Tests.Mapper
             yield return MakeSchemaFieldTestCase<string>("STRING");
             yield return MakeSchemaFieldTestCase<long>("INTEGER");
             yield return MakeSchemaFieldTestCase<long?>("INTEGER");
+            yield return MakeSchemaFieldTestCase<int>("INTEGER");
+            yield return MakeSchemaFieldTestCase<int?>("INTEGER");
             yield return MakeSchemaFieldTestCase<double>("FLOAT");
             yield return MakeSchemaFieldTestCase<double?>("FLOAT");
             yield return MakeSchemaFieldTestCase<DateTime>("TIMESTAMP");
@@ -89,6 +91,22 @@ namespace Trafi.BigQuerier.Tests.Mapper
             yield return MakeFieldMappingTestCase<long?, long>
                 (appValue: 123, bigQueryValue: 123, fetchOnly: false, shouldSkip: false);
             yield return MakeFieldMappingTestCase<long, long?>
+                (appValue: 123, bigQueryValue: 123, fetchOnly: false, shouldSkip: false);
+
+            
+            yield return MakeFieldMappingTestCase<int, string>
+                (appValue: 123, bigQueryValue: "garbage", fetchOnly: true, shouldSkip: true);
+            yield return MakeFieldMappingTestCase<int?, string>
+                (appValue: 123, bigQueryValue: "garbage", fetchOnly: true, shouldSkip: true);
+            yield return MakeFieldMappingTestCase<int, long>
+                (appValue: 123, bigQueryValue: 123, fetchOnly: true, shouldSkip: false);
+            yield return MakeFieldMappingTestCase<int, long>
+                (appValue: 123, bigQueryValue: long.MaxValue, fetchOnly: true, shouldSkip: true);
+            yield return MakeFieldMappingTestCase<int?, long>
+                (appValue: 123, bigQueryValue: 123, fetchOnly: false, shouldSkip: false);
+            yield return MakeFieldMappingTestCase<int?, long?>
+                (appValue: 123, bigQueryValue: 123, fetchOnly: false, shouldSkip: false);
+            yield return MakeFieldMappingTestCase<int, long?>
                 (appValue: 123, bigQueryValue: 123, fetchOnly: false, shouldSkip: false);
 
             yield return MakeFieldMappingTestCase<double, double>
@@ -163,6 +181,8 @@ namespace Trafi.BigQuerier.Tests.Mapper
             yield return MakeSchemaArrayFieldTestCase<string>("STRING");
             yield return MakeSchemaArrayFieldTestCase<long>("INTEGER");
             yield return MakeSchemaArrayFieldTestCase<long?>("INTEGER");
+            yield return MakeSchemaArrayFieldTestCase<int>("INTEGER");
+            yield return MakeSchemaArrayFieldTestCase<int?>("INTEGER");
             yield return MakeSchemaArrayFieldTestCase<double>("FLOAT");
             yield return MakeSchemaArrayFieldTestCase<double?>("FLOAT");
             yield return MakeSchemaArrayFieldTestCase<DateTime>("TIMESTAMP");
@@ -218,6 +238,28 @@ namespace Trafi.BigQuerier.Tests.Mapper
             yield return MakeArrayFieldMappingTestCase<long?, long>
             (appValue: new long?[] {42, 123}, bigQueryValue: new long[] {42, 123}, fetchOnly: false,
                 shouldSkip: false);
+
+            yield return MakeArrayFieldMappingTestCase<int, long>
+            (appValue: new int[] { 42, 123 }, bigQueryValue: new long[] { 42, 123 }, fetchOnly: false,
+                shouldSkip: false);
+            yield return MakeArrayFieldMappingTestCase<int, bool>
+                (appValue: new int[] { 42, 123 }, bigQueryValue: new bool[] { true }, fetchOnly: true, shouldSkip: true);
+            yield return MakeArrayFieldMappingTestCase<int?, long?>
+            (appValue: new int?[] { 42, null, 123 }, bigQueryValue: new long?[] { 42, null, 123 }, fetchOnly: false,
+                shouldSkip: false);
+            yield return MakeArrayFieldMappingTestCase<int?, bool?>
+                (appValue: new int?[] { 42, 123 }, bigQueryValue: new bool?[] { true }, fetchOnly: true, shouldSkip: true);
+            yield return MakeArrayFieldMappingTestCase<int, long?>
+            (appValue: new int[] { 42, 123 }, bigQueryValue: new long?[] { 42, 123 }, fetchOnly: false,
+                shouldSkip: false);
+            yield return MakeArrayFieldMappingTestCase<int?, long>
+            (appValue: new int?[] { 42, 123 }, bigQueryValue: new long[] { 42, 123 }, fetchOnly: false,
+                shouldSkip: false);
+            yield return MakeArrayFieldMappingTestCase<int?, long>
+            (appValue: new int?[] { 42, 123 }, bigQueryValue: new long[] { 42, long.MaxValue }, fetchOnly: true,
+                shouldSkip: true);
+
+
 
             yield return MakeArrayFieldMappingTestCase<double, double>
             (appValue: new double[] {42, 123}, bigQueryValue: new double[] {42, 123}, fetchOnly: false,

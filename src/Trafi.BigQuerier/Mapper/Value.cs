@@ -46,6 +46,22 @@ namespace Trafi.BigQuerier.Mapper
                     mode = BigQueryFieldMode.Nullable,
                 };
             }
+            else if (type == typeof(int))
+            {
+                return new FieldOptions
+                {
+                    type = BigQueryDbType.Int64,
+                    mode = BigQueryFieldMode.Nullable,
+                };
+            }
+            else if (type == typeof(int?))
+            {
+                return new FieldOptions
+                {
+                    type = BigQueryDbType.Int64,
+                    mode = BigQueryFieldMode.Nullable,
+                };
+            }
             else if (type == typeof(double))
             {
                 return new FieldOptions
@@ -112,6 +128,14 @@ namespace Trafi.BigQuerier.Mapper
             {
                 return v => v;
             }
+            else if (type == typeof(int))
+            {
+                return v => (long)(int)v;
+            }
+            else if (type == typeof(int?))
+            {
+                return v => (long?)(int?)v;
+            }
             else if (type == typeof(double))
             {
                 return v => v;
@@ -146,11 +170,27 @@ namespace Trafi.BigQuerier.Mapper
             public bool Skip;
         }
 
+        private static Func<object, MapResult> TryCastLongToIntFunction()
+        {
+            return o => o is long l && l <= int.MaxValue 
+                    ? new MapResult { Value = (int)l }
+                    : new MapResult { Skip = true };
+        }
+
+        private static Func<object, MapResult> TryCastLongToIntNullableFunction()
+        {
+            return o => o is long l && l <= int.MaxValue
+                ? new MapResult { Value = (int?)l }
+                : o == null 
+                  ? new MapResult { Value = null }
+                  : new MapResult { Skip = true };
+        }
+
         private static Func<object, MapResult> DirectMapIfTypeFunction<T>()
         {
             return o => o is T
-                    ? new MapResult { Value = (T)o }
-                    : new MapResult { Skip = true };
+                ? new MapResult { Value = (T)o }
+                : new MapResult { Skip = true };
         }
 
         public static Func<object, MapResult> MaybeFieldFromBigQueryFunction(Type type)
@@ -166,6 +206,14 @@ namespace Trafi.BigQuerier.Mapper
             else if (type == typeof(long?))
             {
                 return DirectMapIfTypeFunction<long?>();
+            }
+            else if (type == typeof(int))
+            {
+                return TryCastLongToIntFunction();
+            }
+            else if (type == typeof(int?))
+            {
+                return TryCastLongToIntNullableFunction();
             }
             else if (type == typeof(double))
             {
@@ -230,6 +278,14 @@ namespace Trafi.BigQuerier.Mapper
                         return value => ArrayValueToBigQuery<long>(value, elementMapFunction);
                     }
                     else if (elementType == typeof(long?))
+                    {
+                        return value => ArrayValueToBigQuery<long?>(value, elementMapFunction);
+                    }
+                    else if (elementType == typeof(int))
+                    {
+                        return value => ArrayValueToBigQuery<long>(value, elementMapFunction);
+                    }
+                    else if (elementType == typeof(int?))
                     {
                         return value => ArrayValueToBigQuery<long?>(value, elementMapFunction);
                     }
@@ -302,6 +358,14 @@ namespace Trafi.BigQuerier.Mapper
                     {
                         return value => NullablePrimitiveArrayValueFromBigQuery<long>(value, elementMapFunction);
                     }
+                    else if (elementType == typeof(int))
+                    {
+                        return value => IntegerArrayValueFromBigQuery(value, elementMapFunction);
+                    }
+                    else if (elementType == typeof(int?))
+                    {
+                        return value => NullableIntegerArrayValueFromBigQuery(value, elementMapFunction);
+                    }
                     else if (elementType == typeof(double))
                     {
                         return value => PrimitiveArrayValueFromBigQuery<double>(value, elementMapFunction);
@@ -361,6 +425,22 @@ namespace Trafi.BigQuerier.Mapper
             };
         }
 
+        private static MapResult IntegerArrayValueFromBigQuery(object value, Func<object, MapResult> elementMapFunction)
+        {
+            if (!(value is long[])) return new MapResult { Skip = true };
+            var array = value as long[];
+            if (array == null) return new MapResult { Value = new long[0] };
+
+            return new MapResult
+            {
+                Value = array
+                    .Select(i => elementMapFunction(i))
+                    .Where(i => !i.Skip)
+                    .Select(i => (int)i.Value)
+                    .ToArray()
+            };
+        }
+
         private static MapResult NullablePrimitiveArrayValueFromBigQuery<T>(object value, Func<object, MapResult> elementMapFunction) where T: struct
         {
             if (!(value is T?[])) return new MapResult { Skip = true };
@@ -372,6 +452,21 @@ namespace Trafi.BigQuerier.Mapper
                 Value = array
                     .Select(i => elementMapFunction(i))
                     .Select(i => i.Skip ? null : (T?)i.Value)
+                    .ToArray()
+            };
+        }
+
+        private static MapResult NullableIntegerArrayValueFromBigQuery(object value, Func<object, MapResult> elementMapFunction)
+        {
+            if (!(value is long?[])) return new MapResult { Skip = true };
+            var array = value as long?[];
+            if (array == null) return new MapResult { Value = new long?[0] };
+
+            return new MapResult
+            {
+                Value = array
+                    .Select(i => elementMapFunction(i))
+                    .Select(i => i.Skip ? null : (int?)i.Value)
                     .ToArray()
             };
         }
