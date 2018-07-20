@@ -74,9 +74,12 @@ class MyItem
 }
 ```
 
-Supported types are `string`, `long`, `double`, `bool`, `DateTime`,
-arrays or optional values of all mentioned types, arrays of other
-contracts and other contracts as properties.
+Supported types are:
+
+- `string`, `int`, `long`, `double`, `bool`, `DateTime`;
+- arrays or optional values of all mentioned types;
+- arrays of other contracts;
+- other contracts as properties.
 
 Start by creating a contract. This auto-generates a mapper
 that can be reused:
