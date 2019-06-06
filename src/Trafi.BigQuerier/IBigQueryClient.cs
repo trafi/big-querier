@@ -23,14 +23,16 @@ namespace Trafi.BigQuerier
         /// <param name="datasetId">Dataset id</param>
         /// <param name="tableId">Table id</param>
         /// <param name="schema">Schema</param>
-        /// <param name="createOptions">Create options</param>
+        /// <param name="createTableOptions">BigQuery table creation options</param>
+        /// <param name="createDatasetOptions">BigQuery dataset creation options</param>
         /// <param name="ct">Cancellation token</param>
         /// <returns>Table client</returns>
         Task<IBigQueryTableClient> GetTableClient(
             string datasetId,
             string tableId,
             TableSchema schema,
-            CreateTableOptions createOptions = null,
+            CreateTableOptions createTableOptions = null,
+            CreateDatasetOptions createDatasetOptions = null,
             CancellationToken ct = default(CancellationToken)
         );
 

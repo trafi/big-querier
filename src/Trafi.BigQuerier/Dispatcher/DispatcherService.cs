@@ -31,6 +31,9 @@ namespace Trafi.BigQuerier.Dispatcher
         [NotNull] private readonly IBigQueryClient _client;
         [NotNull] private readonly TableSchema _schema;
 
+        private readonly CreateTableOptions _createTableOptions;
+        private readonly CreateDatasetOptions _createDatasetOptions;
+
         private readonly TimeSpan _timeToFinish = TimeSpan.FromSeconds(5);
         private readonly TimeSpan _storageRestDuration = TimeSpan.FromMilliseconds(500);
         private readonly TimeSpan _sendBatchInterval = TimeSpan.FromSeconds(2);
@@ -57,17 +60,20 @@ namespace Trafi.BigQuerier.Dispatcher
             [NotNull] string datasetId,
             [NotNull] Func<DateTime, string> tableNameFun,
             CreateTableOptions createTableOptions = null,
+            CreateDatasetOptions createDatasetOptions = null,
             IDispatchLogger logger = null)
         {
             _client = client;
             _schema = schema;
             _datasetId = datasetId;
             _tableNameFun = tableNameFun;
+            _createTableOptions = createTableOptions;
+            _createDatasetOptions = createDatasetOptions;
             _logger = logger;
 
             _tokenSource = new CancellationTokenSource();
             _consumeTask = Task.Factory.StartNew(() => RunConsume(_tokenSource.Token), TaskCreationOptions.LongRunning);
-            _storageTask = Task.Factory.StartNew(() => RunStorage(createTableOptions, _tokenSource.Token),
+            _storageTask = Task.Factory.StartNew(() => RunStorage(_tokenSource.Token),
                 TaskCreationOptions.LongRunning);
         }
 
@@ -96,17 +102,17 @@ namespace Trafi.BigQuerier.Dispatcher
             }
         }
 
-        private void RunStorage(CreateTableOptions createTableOptions, CancellationToken ct)
+        private void RunStorage(CancellationToken ct)
         {
             while (!ct.IsCancellationRequested)
             {
                 if (_storageQueue.Count >= BatchSize)
                 {
-                    Save(BatchSize, createTableOptions: createTableOptions, ct: ct);
+                    Save(BatchSize, ct: ct);
                 }
                 else if (DateTime.UtcNow.Subtract(_lastBatchSent) > _sendBatchInterval && !_storageQueue.IsEmpty)
                 {
-                    Save(_storageQueue.Count, createTableOptions: createTableOptions, ct: ct);
+                    Save(_storageQueue.Count, ct: ct);
                 }
                 ct.WaitHandle.WaitOne(_storageRestDuration);
             }
@@ -114,11 +120,11 @@ namespace Trafi.BigQuerier.Dispatcher
             while (!_storageQueue.IsEmpty)
             {
                 var count = Math.Min(_storageQueue.Count, BatchSize);
-                Save(count, createTableOptions: createTableOptions, ct: ct);
+                Save(count, ct: ct);
             }
         }
 
-        private void Save(int count, CreateTableOptions createTableOptions = null,
+        private void Save(int count,
             CancellationToken ct = default(CancellationToken))
         {
             var items = new List<QueueItem>();
@@ -127,13 +133,12 @@ namespace Trafi.BigQuerier.Dispatcher
                 if (_storageQueue.TryDequeue(out var item))
                     items.Add(item);
             }
-            Store(items, createTableOptions: createTableOptions, ct: ct);
+            Store(items, ct: ct);
             _lastBatchSent = DateTime.UtcNow;
         }
 
         private void Store(
             IReadOnlyCollection<QueueItem> items,
-            CreateTableOptions createTableOptions,
             CancellationToken ct = default(CancellationToken)
         )
         {
@@ -146,7 +151,8 @@ namespace Trafi.BigQuerier.Dispatcher
                 try
                 {
                     var client = _client.GetTableClient(_datasetId, tableName, _schema,
-                        createOptions: createTableOptions,
+                        createTableOptions: _createTableOptions,
+                        createDatasetOptions: _createDatasetOptions,
                         ct: ct).Result;
 
                     _logger?.InsertRows(insertRows.Length, traceId);
