@@ -1,4 +1,4 @@
-﻿// Copyright 2017 TRAFI
+// Copyright 2017 TRAFI
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -155,6 +155,60 @@ namespace Trafi.BigQuerier
             catch (Exception ex)
             {
                 throw new BigQuerierException($"Failed to get rows {sql}", ex);
+            }
+        }
+
+        public async Task<IAsyncEnumerable<BigQueryRow>> ParametricQuery(
+            string sql,
+            IList<BigQueryParameter> namedParameters,
+            QueryOptions options,
+            CancellationToken ct = default(CancellationToken))
+        {
+            BigQueryJob job;
+            var command = new BigQueryCommand(sql);
+
+            foreach (var p in namedParameters)
+            {
+                command.Parameters.Add(p);
+            }
+
+            try
+            {
+                job = await InnerClient.CreateQueryJobAsync(command, options: options, cancellationToken: ct);
+            }
+            catch (Exception ex)
+            {
+                throw new BigQuerierException($"Failed to create big query job for sql {command.Sql}", ex);
+            }
+
+            try
+            {
+                await job.PollUntilCompletedAsync(cancellationToken: ct);
+            }
+            catch (Exception ex)
+            {
+                throw new BigQuerierException($"Failed to poll big query job to completion {command.Sql}", ex,
+                    job.Status);
+            }
+
+            BigQueryResults results;
+
+            try
+            {
+                results = await job.GetQueryResultsAsync(cancellationToken: ct);
+            }
+            catch (Exception ex)
+            {
+                throw new BigQuerierException($"Failed to get job results {command.Sql}", ex, job.Status);
+            }
+
+            try
+            {
+                return results.GetRowsAsync();
+            }
+            catch (Exception ex)
+            {
+                throw new BigQuerierException($"Failed to get rows {command.Sql}", ex);
             }
         }
     }
