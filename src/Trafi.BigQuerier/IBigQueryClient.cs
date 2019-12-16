@@ -1,4 +1,4 @@
-﻿// Copyright 2017 TRAFI
+// Copyright 2017 TRAFI
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -45,7 +45,21 @@ namespace Trafi.BigQuerier
         /// <returns>Rows</returns>
         Task<IAsyncEnumerable<BigQueryRow>> Query(string sql, QueryOptions options = null,
             CancellationToken ct = default(CancellationToken));
-
+        
+        /// <summary>
+        /// Execute a query with parameters.
+        /// </summary>
+        /// <param name="sql">SQL</param>
+        /// <param name="namedParameters">Query parameters</param>
+        /// <param name="options">Query options</param>
+        /// <param name="ct">Cancellation token</param>
+        /// <returns>Rows</returns>
+        Task<IAsyncEnumerable<BigQueryRow>> ParametricQuery(
+            string sql,
+            IList<BigQueryParameter> namedParameters,
+            QueryOptions options,
+            CancellationToken ct = default(CancellationToken));
+        
         /// <summary>
         /// Delete a table.
         /// </summary>
