@@ -2,7 +2,7 @@
 
 [![Build Status](https://travis-ci.org/trafi/big-querier.svg?branch=master)](https://travis-ci.org/trafi/big-querier)
 
-Big Queries for Simple People.
+Big Queries for Simple People. Edit.
 
 ## What it is
 
