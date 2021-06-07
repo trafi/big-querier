@@ -9,7 +9,7 @@
     <PackageLicenseUrl>https://raw.githubusercontent.com/trafi/big-querier/master/LICENSE</PackageLicenseUrl>
     <RepositoryType>git</RepositoryType>
     <RepositoryUrl>https://github.com/trafi/big-querier</RepositoryUrl>
-    <TargetFrameworks>netstandard1.6</TargetFrameworks>
+    <TargetFramework>netstandard1.6</TargetFramework>
     <DebugType>full</DebugType>
     <AssemblyName>Trafi.BigQuerier</AssemblyName>
     <RootNamespace>Trafi.BigQuerier</RootNamespace>
