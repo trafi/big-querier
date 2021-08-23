@@ -121,7 +121,7 @@ namespace Trafi.BigQuerier
             BigQueryJob job;
             try
             {
-                job = await InnerClient.CreateQueryJobAsync(sql, options: options, cancellationToken: ct);
+                job = await InnerClient.CreateQueryJobAsync(sql, options: options, cancellationToken: ct, parameters: null);
             }
             catch (Exception ex)
             {
@@ -165,20 +165,14 @@ namespace Trafi.BigQuerier
             CancellationToken ct = default(CancellationToken))
         {
             BigQueryJob job;
-            var command = new BigQueryCommand(sql);
-
-            foreach (var p in namedParameters)
-            {
-                command.Parameters.Add(p);
-            }
 
             try
             {
-                job = await InnerClient.CreateQueryJobAsync(command, options: options, cancellationToken: ct);
+                job = await InnerClient.CreateQueryJobAsync(sql, options: options, cancellationToken: ct, parameters: namedParameters);
             }
             catch (Exception ex)
             {
-                throw new BigQuerierException($"Failed to create big query job for sql {command.Sql}", ex);
+                throw new BigQuerierException($"Failed to create big query job for sql {sql}", ex);
             }
 
             try
@@ -187,7 +181,7 @@ namespace Trafi.BigQuerier
             }
             catch (Exception ex)
             {
-                throw new BigQuerierException($"Failed to poll big query job to completion {command.Sql}", ex,
+                throw new BigQuerierException($"Failed to poll big query job to completion {sql}", ex,
                     job.Status);
             }
 
@@ -199,7 +193,7 @@ namespace Trafi.BigQuerier
             }
             catch (Exception ex)
             {
-                throw new BigQuerierException($"Failed to get job results {command.Sql}", ex, job.Status);
+                throw new BigQuerierException($"Failed to get job results {sql}", ex, job.Status);
             }
 
             try
@@ -208,7 +202,7 @@ namespace Trafi.BigQuerier
             }
             catch (Exception ex)
             {
-                throw new BigQuerierException($"Failed to get rows {command.Sql}", ex);
+                throw new BigQuerierException($"Failed to get rows {sql}", ex);
             }
         }
     }
