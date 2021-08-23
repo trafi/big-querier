@@ -1,22 +1,21 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <PackageId>Trafi.BigQuerier</PackageId>
+    <TargetFramework>netstandard2.0</TargetFramework>
     <PackageVersion>1.0.0</PackageVersion>
+    <LangVersion>8</LangVersion>
+
     <Authors>Trafi</Authors>
-    <Copyright>2017 TRAFI</Copyright>
+    <Copyright>2021 TRAFI</Copyright>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
     <PackageProjectUrl>https://github.com/trafi/big-querier</PackageProjectUrl>
     <PackageLicenseUrl>https://raw.githubusercontent.com/trafi/big-querier/master/LICENSE</PackageLicenseUrl>
     <RepositoryType>git</RepositoryType>
     <RepositoryUrl>https://github.com/trafi/big-querier</RepositoryUrl>
-    <TargetFramework>netstandard1.6</TargetFramework>
-    <DebugType>full</DebugType>
-    <AssemblyName>Trafi.BigQuerier</AssemblyName>
-    <RootNamespace>Trafi.BigQuerier</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="JetBrains.Annotations" Version="10.4.0" />
-    <PackageReference Include="Google.Apis.Auth" Version="1.28.0" />
-    <PackageReference Include="Google.Cloud.BigQuery.V2" Version="1.0.0-beta17" />
+    <PackageReference Include="Google.Apis.Auth" Version="1.54.0" />
+    <PackageReference Include="Google.Cloud.BigQuery.V2" Version="1.4.1" />
   </ItemGroup>
 </Project>
