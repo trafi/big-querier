@@ -30,8 +30,7 @@ namespace Trafi.BigQuerier.Dispatcher
         private readonly IBigQueryClient _client;
         private readonly TableSchema _schema;
 
-        private readonly CreateTableOptions? _createTableOptions;
-        private readonly CreateDatasetOptions? _createDatasetOptions;
+        private readonly Dataset? _createDatasetOptions;
 
         private readonly TimeSpan _timeToFinish = TimeSpan.FromSeconds(5);
         private readonly TimeSpan _storageRestDuration = TimeSpan.FromMilliseconds(500);
@@ -58,15 +57,13 @@ namespace Trafi.BigQuerier.Dispatcher
             TableSchema schema,
             string datasetId,
             Func<DateTime, string> tableNameFun,
-            CreateTableOptions? createTableOptions = null,
-            CreateDatasetOptions? createDatasetOptions = null,
+            Dataset? createDatasetOptions = null,
             IDispatchLogger? logger = null)
         {
             _client = client;
             _schema = schema;
             _datasetId = datasetId;
             _tableNameFun = tableNameFun;
-            _createTableOptions = createTableOptions;
             _createDatasetOptions = createDatasetOptions;
             _logger = logger;
 
@@ -150,7 +147,6 @@ namespace Trafi.BigQuerier.Dispatcher
                 try
                 {
                     var client = _client.GetTableClient(_datasetId, tableName, _schema,
-                        createTableOptions: _createTableOptions,
                         createDatasetOptions: _createDatasetOptions,
                         ct: ct).Result;
 

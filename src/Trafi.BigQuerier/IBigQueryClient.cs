@@ -23,7 +23,6 @@ namespace Trafi.BigQuerier
         /// <param name="datasetId">Dataset id</param>
         /// <param name="tableId">Table id</param>
         /// <param name="schema">Schema</param>
-        /// <param name="createTableOptions">BigQuery table creation options</param>
         /// <param name="createDatasetOptions">BigQuery dataset creation options</param>
         /// <param name="ct">Cancellation token</param>
         /// <returns>Table client</returns>
@@ -31,8 +30,7 @@ namespace Trafi.BigQuerier
             string datasetId,
             string tableId,
             TableSchema schema,
-            CreateTableOptions? createTableOptions = null,
-            CreateDatasetOptions? createDatasetOptions = null,
+            Dataset? createDatasetOptions = null,
             CancellationToken ct = default
         );
 

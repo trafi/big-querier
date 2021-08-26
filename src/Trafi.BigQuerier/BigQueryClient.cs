@@ -87,21 +87,20 @@ namespace Trafi.BigQuerier
             string datasetId,
             string tableId,
             TableSchema schema,
-            CreateTableOptions? createTableOptions = null,
-            CreateDatasetOptions? createDatasetOptions = null,
-            CancellationToken ct = default(CancellationToken)
+            Dataset? createDatasetOptions = null,
+            CancellationToken ct = default
         )
         {
             try
             {
+                var datasetOptions = createDatasetOptions ?? new Dataset();
                 var dataset = await InnerClient.GetOrCreateDatasetAsync(
                     datasetId,
-                    createOptions: createDatasetOptions,
+                    datasetOptions,
                     cancellationToken: ct);
                 var table = await dataset.GetOrCreateTableAsync(
                     tableId,
                     schema,
-                    createOptions: createTableOptions,
                     cancellationToken: ct);
 
                 return new BigQueryTableClient(table);
