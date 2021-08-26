@@ -31,9 +31,9 @@ namespace Trafi.BigQuerier
             string datasetId,
             string tableId,
             TableSchema schema,
-            CreateTableOptions createTableOptions = null,
-            CreateDatasetOptions createDatasetOptions = null,
-            CancellationToken ct = default(CancellationToken)
+            CreateTableOptions? createTableOptions = null,
+            CreateDatasetOptions? createDatasetOptions = null,
+            CancellationToken ct = default
         );
 
         /// <summary>
@@ -43,8 +43,8 @@ namespace Trafi.BigQuerier
         /// <param name="options">Query options</param>
         /// <param name="ct">Cancellation token</param>
         /// <returns>Rows</returns>
-        Task<IAsyncEnumerable<BigQueryRow>> Query(string sql, QueryOptions options = null,
-            CancellationToken ct = default(CancellationToken));
+        Task<IAsyncEnumerable<BigQueryRow>> Query(string sql, QueryOptions? options = null,
+            CancellationToken ct = default);
         
         /// <summary>
         /// Execute a query with parameters.
@@ -58,7 +58,7 @@ namespace Trafi.BigQuerier
             string sql,
             IList<BigQueryParameter> namedParameters,
             QueryOptions options,
-            CancellationToken ct = default(CancellationToken));
+            CancellationToken ct = default);
         
         /// <summary>
         /// Delete a table.
@@ -66,6 +66,6 @@ namespace Trafi.BigQuerier
         /// <param name="datasetId">Dataset id</param>
         /// <param name="tableId">Table id</param>
         /// <param name="ct">Cancellation token</param>
-        Task DeleteTable(string datasetId, string tableId, CancellationToken ct = default(CancellationToken));
+        Task DeleteTable(string datasetId, string tableId, CancellationToken ct = default);
     }
 }

@@ -9,6 +9,8 @@ using Google.Apis.Bigquery.v2.Data;
 using Google.Cloud.BigQuery.V2;
 using System;
 
+#nullable disable
+
 namespace Trafi.BigQuerier
 {
     public class ContractCache

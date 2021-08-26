@@ -10,6 +10,8 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 
+#nullable disable
+
 namespace Trafi.BigQuerier.Mapper
 {
     public static class Property
@@ -19,7 +21,7 @@ namespace Trafi.BigQuerier.Mapper
             var simpleFieldOptions = Value.MaybeSimpleFieldOptionsFromType(type);
             if (simpleFieldOptions != null)
             {
-                tableBuilder.Add(name, simpleFieldOptions.type, simpleFieldOptions.mode);
+                tableBuilder.Add(name, simpleFieldOptions.Type, simpleFieldOptions.Mode);
                 return;
             }
 
@@ -29,7 +31,7 @@ namespace Trafi.BigQuerier.Mapper
                 var simpleArrayElementFieldOptions = Value.MaybeSimpleFieldOptionsFromType(elementType);
                 if (null != simpleArrayElementFieldOptions)
                 {
-                    tableBuilder.Add(name, simpleArrayElementFieldOptions.type, BigQueryFieldMode.Repeated);
+                    tableBuilder.Add(name, simpleArrayElementFieldOptions.Type, BigQueryFieldMode.Repeated);
                     return;
                 }
 

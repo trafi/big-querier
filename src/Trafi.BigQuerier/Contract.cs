@@ -7,11 +7,7 @@
 
 using Google.Apis.Bigquery.v2.Data;
 using Google.Cloud.BigQuery.V2;
-using System.Collections.Generic;
-using System.Linq;
 using Trafi.BigQuerier.Mapper;
-using System.Threading.Tasks;
-using System.Threading;
 
 namespace Trafi.BigQuerier
 {
@@ -39,10 +35,14 @@ namespace Trafi.BigQuerier
 
         public TableSchema Schema => Cache.Schema;
 
+        #nullable disable
+        
         public BigQueryInsertRow ToRow(T value)
         {
             return (BigQueryInsertRow) Cache.ValueToRow(value);
         }
+        
+        #nullable restore
 
         public T FromRow(BigQueryRow resultRow)
         {

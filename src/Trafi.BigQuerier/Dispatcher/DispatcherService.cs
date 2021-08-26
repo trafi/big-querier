@@ -14,7 +14,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Google.Apis.Bigquery.v2.Data;
 using Google.Cloud.BigQuery.V2;
-using JetBrains.Annotations;
 
 namespace Trafi.BigQuerier.Dispatcher
 {
@@ -23,16 +22,16 @@ namespace Trafi.BigQuerier.Dispatcher
         private struct QueueItem
         {
             public DateTime Time;
-            [NotNull] public BigQueryInsertRow Row;
+            public BigQueryInsertRow Row;
         }
 
-        [NotNull] private readonly Func<DateTime, string> _tableNameFun;
-        [NotNull] private readonly string _datasetId;
-        [NotNull] private readonly IBigQueryClient _client;
-        [NotNull] private readonly TableSchema _schema;
+        private readonly Func<DateTime, string> _tableNameFun;
+        private readonly string _datasetId;
+        private readonly IBigQueryClient _client;
+        private readonly TableSchema _schema;
 
-        private readonly CreateTableOptions _createTableOptions;
-        private readonly CreateDatasetOptions _createDatasetOptions;
+        private readonly CreateTableOptions? _createTableOptions;
+        private readonly CreateDatasetOptions? _createDatasetOptions;
 
         private readonly TimeSpan _timeToFinish = TimeSpan.FromSeconds(5);
         private readonly TimeSpan _storageRestDuration = TimeSpan.FromMilliseconds(500);
@@ -48,20 +47,20 @@ namespace Trafi.BigQuerier.Dispatcher
         private readonly Task _consumeTask;
         private readonly Task _storageTask;
 
-        [CanBeNull] private readonly IDispatchLogger _logger;
+        private readonly IDispatchLogger? _logger;
 
         public int? LastEntriesBatchSize { get; set; }
         public TimeSpan? LastBatchSendTime { get; set; }
         public int QueueSize => _queue.Count;
 
         public DispatcherService(
-            [NotNull] IBigQueryClient client,
-            [NotNull] TableSchema schema,
-            [NotNull] string datasetId,
-            [NotNull] Func<DateTime, string> tableNameFun,
-            CreateTableOptions createTableOptions = null,
-            CreateDatasetOptions createDatasetOptions = null,
-            IDispatchLogger logger = null)
+            IBigQueryClient client,
+            TableSchema schema,
+            string datasetId,
+            Func<DateTime, string> tableNameFun,
+            CreateTableOptions? createTableOptions = null,
+            CreateDatasetOptions? createDatasetOptions = null,
+            IDispatchLogger? logger = null)
         {
             _client = client;
             _schema = schema;
