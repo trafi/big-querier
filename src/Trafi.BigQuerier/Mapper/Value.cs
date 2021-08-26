@@ -16,103 +16,103 @@ namespace Trafi.BigQuerier.Mapper
     {
         public class FieldOptions
         {
-            public BigQueryDbType type;
-            public BigQueryFieldMode mode;
-        }
+            public BigQueryDbType Type;
+            public BigQueryFieldMode Mode;
 
-        public static FieldOptions MaybeSimpleFieldOptionsFromType(Type type)
+            public FieldOptions(
+                BigQueryDbType type,
+                BigQueryFieldMode mode
+            )
+            {
+                this.Type = type;
+                this.Mode = mode;
+            }
+        };
+
+        public static FieldOptions? MaybeSimpleFieldOptionsFromType(Type type)
         {
             if (type == typeof(string))
             {
-                return new FieldOptions
-                {
-                    type = BigQueryDbType.String,
-                    mode = BigQueryFieldMode.Nullable,
-                };
+                return new FieldOptions(
+                    type: BigQueryDbType.String,
+                    mode: BigQueryFieldMode.Nullable
+                );
             }
             else if (type == typeof(long))
             {
-                return new FieldOptions
-                {
-                    type = BigQueryDbType.Int64,
-                    mode = BigQueryFieldMode.Nullable,
-                };
+                return new FieldOptions(
+                    type: BigQueryDbType.Int64,
+                    mode: BigQueryFieldMode.Nullable
+                );
             }
             else if (type == typeof(long?))
             {
-                return new FieldOptions
-                {
-                    type = BigQueryDbType.Int64,
-                    mode = BigQueryFieldMode.Nullable,
-                };
+                return new FieldOptions(
+                    type: BigQueryDbType.Int64,
+                    mode: BigQueryFieldMode.Nullable
+                );
             }
             else if (type == typeof(int))
             {
-                return new FieldOptions
-                {
-                    type = BigQueryDbType.Int64,
-                    mode = BigQueryFieldMode.Nullable,
-                };
+                return new FieldOptions(
+                    type: BigQueryDbType.Int64,
+                    mode: BigQueryFieldMode.Nullable
+                );
             }
             else if (type == typeof(int?))
             {
-                return new FieldOptions
-                {
-                    type = BigQueryDbType.Int64,
-                    mode = BigQueryFieldMode.Nullable,
-                };
+                return new FieldOptions(
+                    type: BigQueryDbType.Int64,
+                    mode: BigQueryFieldMode.Nullable
+                );
             }
             else if (type == typeof(double))
             {
-                return new FieldOptions
-                {
-                    type = BigQueryDbType.Float64,
-                    mode = BigQueryFieldMode.Nullable,
-                };
+                return new FieldOptions(
+                    type: BigQueryDbType.Float64,
+                    mode: BigQueryFieldMode.Nullable
+                );
             }
             else if (type == typeof(double?))
             {
-                return new FieldOptions
-                {
-                    type = BigQueryDbType.Float64,
-                    mode = BigQueryFieldMode.Nullable,
-                };
+                return new FieldOptions(
+                    type: BigQueryDbType.Float64,
+                    mode: BigQueryFieldMode.Nullable
+                );
             }
             else if (type == typeof(bool))
             {
-                return new FieldOptions
-                {
-                    type = BigQueryDbType.Bool,
-                    mode = BigQueryFieldMode.Nullable,
-                };
+                return new FieldOptions(
+                    type: BigQueryDbType.Bool,
+                    mode: BigQueryFieldMode.Nullable
+                );
             }
             else if (type == typeof(bool?))
             {
-                return new FieldOptions
-                {
-                    type = BigQueryDbType.Bool,
-                    mode = BigQueryFieldMode.Nullable,
-                };
+                return new FieldOptions(
+                    type: BigQueryDbType.Bool,
+                    mode: BigQueryFieldMode.Nullable
+                );
             }
             else if (type == typeof(DateTime))
             {
-                return new FieldOptions
-                {
-                    type = BigQueryDbType.Timestamp,
-                    mode = BigQueryFieldMode.Nullable,
-                };
+                return new FieldOptions(
+                    type: BigQueryDbType.Timestamp,
+                    mode: BigQueryFieldMode.Nullable
+                );
             }
             else if (type == typeof(DateTime?))
             {
-                return new FieldOptions
-                {
-                    type = BigQueryDbType.Timestamp,
-                    mode = BigQueryFieldMode.Nullable,
-                };
+                return new FieldOptions(
+                    type: BigQueryDbType.Timestamp,
+                    mode: BigQueryFieldMode.Nullable
+                );
             }
 
             return null;
         }
+        
+        #nullable disable
 
         public static Func<object, object> MaybeFieldToBigQueryFunction(Type type)
         {
@@ -485,5 +485,7 @@ namespace Trafi.BigQuerier.Mapper
                     .ToArray()
             };
         }
+        
+        #nullable restore
     }
 }

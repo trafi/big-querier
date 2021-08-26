@@ -12,21 +12,21 @@ namespace Trafi.BigQuerier
 {
     public class BigQuerierException : Exception
     {
-        public JobStatus JobStatus { get; }
+        public JobStatus? JobStatus { get; }
 
-        public BigQuerierException(string message, JobStatus jobStatus = null) : base(
+        public BigQuerierException(string message, JobStatus? jobStatus = null) : base(
             CombineMessageWithJobErrorMessage(message, jobStatus))
         {
             JobStatus = jobStatus;
         }
 
-        public BigQuerierException(string message, Exception innerException, JobStatus jobStatus = null) : base(
+        public BigQuerierException(string message, Exception innerException, JobStatus? jobStatus = null) : base(
             CombineMessageWithJobErrorMessage(message, jobStatus), innerException)
         {
             JobStatus = jobStatus;
         }
 
-        private static string CombineMessageWithJobErrorMessage(string message, JobStatus jobStatus)
+        private static string CombineMessageWithJobErrorMessage(string message, JobStatus? jobStatus)
         {
             if (jobStatus?.ErrorResult == null)
                 return message;
@@ -37,9 +37,7 @@ namespace Trafi.BigQuerier
                                : "")
                            + jobStatus.ErrorResult.Message;
 
-            return message == null
-                ? jobError
-                : $"{message}. {jobError}";
+            return $"{message}. {jobError}";
         }
     }
 }

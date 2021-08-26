@@ -2,11 +2,12 @@
 
 [![Build Status](https://travis-ci.org/trafi/big-querier.svg?branch=master)](https://travis-ci.org/trafi/big-querier)
 
-Big Queries for Simple People.
+Big Query object-to-row mapper.
 
 ## What it is
 
-Big Querier helps to automatically map objects to big query insert rows and vice-versa. Therefore, it can be thought of as simple ORM. However, there are 3 parts of big querier, each of them can be used separately:
+Big Querier helps to automatically map objects to big query insert rows and vice-versa. 
+There are 3 parts of big querier, each of them can be used separately:
 
 - __The Client__: A Big Query wrapper that simplifies query creation and result retrieval.
 - __The Contract__: A Row-to-object mapper, can convert object to row for insertion or selected row back to object.
@@ -47,7 +48,7 @@ var results = await client
 
 This library throws `BigQuerierException` exceptions.
 
-## Features for Simple People
+## Mapper
 
 Describe your contract:
 

@@ -4,6 +4,8 @@
     <TargetFramework>netstandard2.0</TargetFramework>
     <PackageVersion>1.0.0</PackageVersion>
     <LangVersion>8</LangVersion>
+    <Nullable>enable</Nullable>
+    <WarningsAsErrors>CS8600;CS8604;CS8602;CS8625;CS8632;CS8603;CS8618;CS8619;CS8767;CS8613;CS8601;CS8620</WarningsAsErrors>
 
     <Authors>Trafi</Authors>
     <Copyright>2021 TRAFI</Copyright>
@@ -14,8 +16,7 @@
     <RepositoryUrl>https://github.com/trafi/big-querier</RepositoryUrl>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="JetBrains.Annotations" Version="10.4.0" />
     <PackageReference Include="Google.Apis.Auth" Version="1.54.0" />
-    <PackageReference Include="Google.Cloud.BigQuery.V2" Version="1.4.1" />
+    <PackageReference Include="Google.Cloud.BigQuery.V2" Version="2.3.0" />
   </ItemGroup>
 </Project>

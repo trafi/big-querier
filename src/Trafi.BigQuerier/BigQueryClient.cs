@@ -70,7 +70,7 @@ namespace Trafi.BigQuerier
         public async Task DeleteTable(
             string datasetId,
             string tableId,
-            CancellationToken ct = default(CancellationToken)
+            CancellationToken ct = default
         )
         {
             try
@@ -79,7 +79,7 @@ namespace Trafi.BigQuerier
             }
             catch (Exception ex)
             {
-                throw new BigQuerierException($"Failed to create dataset {datasetId} or table {tableId}", ex);
+                throw new BigQuerierException($"Failed to delete table {datasetId}.{tableId}", ex);
             }
         }
 
@@ -87,21 +87,20 @@ namespace Trafi.BigQuerier
             string datasetId,
             string tableId,
             TableSchema schema,
-            CreateTableOptions createTableOptions = null,
-            CreateDatasetOptions createDatasetOptions = null,
-            CancellationToken ct = default(CancellationToken)
+            Dataset? createDatasetOptions = null,
+            CancellationToken ct = default
         )
         {
             try
             {
+                var datasetOptions = createDatasetOptions ?? new Dataset();
                 var dataset = await InnerClient.GetOrCreateDatasetAsync(
                     datasetId,
-                    createOptions: createDatasetOptions,
+                    datasetOptions,
                     cancellationToken: ct);
                 var table = await dataset.GetOrCreateTableAsync(
                     tableId,
                     schema,
-                    createOptions: createTableOptions,
                     cancellationToken: ct);
 
                 return new BigQueryTableClient(table);
@@ -114,8 +113,8 @@ namespace Trafi.BigQuerier
 
         public async Task<IAsyncEnumerable<BigQueryRow>> Query(
             string sql,
-            QueryOptions options = null,
-            CancellationToken ct = default(CancellationToken)
+            QueryOptions? options = null,
+            CancellationToken ct = default
         )
         {
             BigQueryJob job;
@@ -162,7 +161,7 @@ namespace Trafi.BigQuerier
             string sql,
             IList<BigQueryParameter> namedParameters,
             QueryOptions options,
-            CancellationToken ct = default(CancellationToken))
+            CancellationToken ct = default)
         {
             BigQueryJob job;
 
