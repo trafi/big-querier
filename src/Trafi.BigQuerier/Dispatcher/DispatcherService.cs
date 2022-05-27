@@ -84,6 +84,14 @@ namespace Trafi.BigQuerier.Dispatcher
                 _logger?.CannotAdd(queueItem.Row);
         }
 
+        public async Task<BigQueryDataset> GetOrCreateDatasetAsync(CancellationToken ct = default)
+        {
+            return await _client.InnerClient.GetOrCreateDatasetAsync(
+                _datasetId,
+                _createDatasetOptions,
+                cancellationToken: ct);
+        }
+
         private void RunConsume(CancellationToken ct)
         {
             try
