@@ -29,6 +29,7 @@ namespace Trafi.BigQuerier.Dispatcher
         private readonly string _datasetId;
         private readonly IBigQueryClient _client;
         private readonly TableSchema _schema;
+        private readonly int _batchSize;
 
         private readonly Dataset? _createDatasetOptions;
 
@@ -36,7 +37,6 @@ namespace Trafi.BigQuerier.Dispatcher
         private readonly TimeSpan _storageRestDuration = TimeSpan.FromMilliseconds(500);
         private readonly TimeSpan _sendBatchInterval = TimeSpan.FromSeconds(2);
         private const int MaxQueueLength = 1_000_000;
-        private const int BatchSize = 100;
 
         private DateTime _lastBatchSent = DateTime.MinValue;
 
@@ -52,11 +52,11 @@ namespace Trafi.BigQuerier.Dispatcher
         public TimeSpan? LastBatchSendTime { get; set; }
         public int QueueSize => _queue.Count;
 
-        public DispatcherService(
-            IBigQueryClient client,
+        public DispatcherService(IBigQueryClient client,
             TableSchema schema,
             string datasetId,
             Func<DateTime, string> tableNameFun,
+            int batchSize,
             Dataset? createDatasetOptions = null,
             IDispatchLogger? logger = null)
         {
@@ -64,6 +64,7 @@ namespace Trafi.BigQuerier.Dispatcher
             _schema = schema;
             _datasetId = datasetId;
             _tableNameFun = tableNameFun;
+            _batchSize = batchSize;
             _createDatasetOptions = createDatasetOptions;
             _logger = logger;
 
@@ -71,6 +72,16 @@ namespace Trafi.BigQuerier.Dispatcher
             _consumeTask = Task.Factory.StartNew(() => RunConsume(_tokenSource.Token), TaskCreationOptions.LongRunning);
             _storageTask = Task.Factory.StartNew(() => RunStorage(_tokenSource.Token),
                 TaskCreationOptions.LongRunning);
+        }
+        
+        public DispatcherService(
+            IBigQueryClient client,
+            TableSchema schema,
+            string datasetId,
+            Func<DateTime, string> tableNameFun,
+            Dataset? createDatasetOptions = null,
+            IDispatchLogger? logger = null) : this(client, schema, datasetId, tableNameFun, 100, createDatasetOptions, logger)
+        {
         }
 
         public void Dispatch(DateTime time, BigQueryInsertRow row)
@@ -110,9 +121,9 @@ namespace Trafi.BigQuerier.Dispatcher
         {
             while (!ct.IsCancellationRequested)
             {
-                if (_storageQueue.Count >= BatchSize)
+                if (_storageQueue.Count >= _batchSize)
                 {
-                    Save(BatchSize, ct: ct);
+                    Save(_batchSize, ct: ct);
                 }
                 else if (DateTime.UtcNow.Subtract(_lastBatchSent) > _sendBatchInterval && !_storageQueue.IsEmpty)
                 {
@@ -123,7 +134,7 @@ namespace Trafi.BigQuerier.Dispatcher
 
             while (!_storageQueue.IsEmpty)
             {
-                var count = Math.Min(_storageQueue.Count, BatchSize);
+                var count = Math.Min(_storageQueue.Count, _batchSize);
                 Save(count, ct: ct);
             }
         }
