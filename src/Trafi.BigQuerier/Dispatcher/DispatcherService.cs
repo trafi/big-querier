@@ -84,7 +84,12 @@ namespace Trafi.BigQuerier.Dispatcher
         {
         }
 
-        public void Dispatch(DateTime time, BigQueryInsertRow row, CancellationToken ct = default)
+        public void Dispatch(DateTime time, BigQueryInsertRow row)
+        {
+            Dispatch(time, row, CancellationToken.None);
+        }
+
+        public void Dispatch(DateTime time, BigQueryInsertRow row, CancellationToken ct)
         {
             var queueItem = new QueueItem
             {
