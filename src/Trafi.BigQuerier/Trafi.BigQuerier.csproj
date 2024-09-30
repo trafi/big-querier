@@ -1,20 +1,31 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <PackageId>Trafi.BigQuerier</PackageId>
-    <TargetFramework>netstandard2.0</TargetFramework>
-    <PackageVersion>1.0.0</PackageVersion>
-    <LangVersion>8</LangVersion>
+  <PropertyGroup>    
+    <TargetFramework>net6.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <WarningsAsErrors>CS8600;CS8604;CS8602;CS8625;CS8632;CS8603;CS8618;CS8619;CS8767;CS8613;CS8601;CS8620</WarningsAsErrors>
+  </PropertyGroup>
 
+  <PropertyGroup>
+    <PackageId>Trafi.BigQuerier</PackageId>
+    <VersionPrefix>1.0.0</VersionPrefix>
+    <AssemblyVersion>1.0.0</AssemblyVersion>
+    <PackageVersion>1.0.0</PackageVersion>
+    <FileVersion>1.0.0</FileVersion>
     <Authors>Trafi</Authors>
     <Copyright>2021 TRAFI</Copyright>
-    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-    <PackageProjectUrl>https://github.com/trafi/big-querier</PackageProjectUrl>
-    <PackageLicenseUrl>https://raw.githubusercontent.com/trafi/big-querier/master/LICENSE</PackageLicenseUrl>
     <RepositoryType>git</RepositoryType>
     <RepositoryUrl>https://github.com/trafi/big-querier</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/trafi/big-querier</PackageProjectUrl>
+    <PackageLicenseUrl>https://raw.githubusercontent.com/trafi/big-querier/master/LICENSE</PackageLicenseUrl>
+    <DebugType>Embedded</DebugType>
+    <EmbedAllSources>True</EmbedAllSources>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <GenerateDocumentationFile>True</GenerateDocumentationFile>
+    <!-- This disables compiler warnings when not all public members are documented -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Google.Apis.Auth" Version="1.54.0" />
     <PackageReference Include="Google.Cloud.BigQuery.V2" Version="2.3.0" />
