@@ -17,5 +17,13 @@ namespace Trafi.BigQuerier.Dispatcher
         void InsertError(Exception ex, BigQueryInsertRow[] insertRows, string traceId);
         void UnsentRows(BigQueryInsertRow[] insertRows);
         void CannotAdd(BigQueryInsertRow row);
+        /// <summary>
+        /// Called after a batch is stored
+        /// </summary>
+        /// <param name="stored">Stored items count</param>
+        /// <param name="timeTakenMs">Time taken to Store the batch in milliseconds</param>
+        /// <param name="remainingInQueue">Items remaining in queue</param>
+        /// <param name="traceId">TraceId, unique per Storage attempt</param>
+        void Stored(int stored, int timeTakenMs, int remainingInQueue, string traceId);
     }
 }
