@@ -144,8 +144,7 @@ namespace Trafi.BigQuerier.Dispatcher
             }
         }
 
-        private void Save(int count,
-            CancellationToken ct = default(CancellationToken))
+        private void Save(int count, CancellationToken ct = default)
         {
             var items = new List<QueueItem>();
             for (var i = 0; i < count; i++)
@@ -157,13 +156,11 @@ namespace Trafi.BigQuerier.Dispatcher
             _lastBatchSent = DateTime.UtcNow;
         }
 
-        private void Store(
-            IReadOnlyCollection<QueueItem> items,
-            CancellationToken ct = default(CancellationToken)
-        )
+        private void Store(IReadOnlyCollection<QueueItem> items, CancellationToken ct = default)
         {
             var sw = Stopwatch.StartNew();
             var traceId = Guid.NewGuid().ToString();
+            var stored = 0;
             foreach (var batch in items.GroupBy(item => _tableNameFun(item.Time)))
             {
                 var tableName = batch.Key;
@@ -174,6 +171,7 @@ namespace Trafi.BigQuerier.Dispatcher
                         createDatasetOptions: _createDatasetOptions,
                         ct: ct).Result;
 
+                    stored += insertRows.Length;
                     _logger?.InsertRows(insertRows.Length, traceId);
 
                     client.InsertRows(insertRows, CancellationToken.None).Wait(ct);
@@ -186,6 +184,11 @@ namespace Trafi.BigQuerier.Dispatcher
             sw.Stop();
             LastBatchSendTime = sw.Elapsed;
             LastEntriesBatchSize = items.Count;
+            _logger?.Stored(
+                stored: stored,
+                timeTakenMs: (int)sw.Elapsed.TotalMilliseconds,
+                remainingInQueue: _storageQueue.Count,
+                traceId: traceId);
         }
 
         public void Dispose()

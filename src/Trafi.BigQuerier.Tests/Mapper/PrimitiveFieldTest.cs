@@ -139,7 +139,7 @@ namespace Trafi.BigQuerier.Tests.Mapper
             {
                 bigQueryValue = fieldToBigQuery(value);
                 bigQueryValue
-                    .ShouldBeEquivalentTo(expectedBigQueryValue,
+                    .Should().BeEquivalentTo(expectedBigQueryValue,
                         $"{type} value {value} should be {expectedBigQueryValue} when converted to big query value");
             }
             else
@@ -155,7 +155,7 @@ namespace Trafi.BigQuerier.Tests.Mapper
             }
             else
             {
-                valueAgain.Value.ShouldBeEquivalentTo(expectedValueAgain.Value,
+                valueAgain.Value.Should().BeEquivalentTo(expectedValueAgain.Value,
                     $"Should set {type} value {bigQueryValue} to {expectedValueAgain.Value} when converting from big query");
             }
         }
@@ -304,7 +304,7 @@ namespace Trafi.BigQuerier.Tests.Mapper
             {
                 bigQueryValue = fieldToBigQuery(value);
                 bigQueryValue
-                    .ShouldBeEquivalentTo(expectedBigQueryValue);
+                    .Should().BeEquivalentTo(expectedBigQueryValue);
             }
             else
             {
@@ -317,7 +317,7 @@ namespace Trafi.BigQuerier.Tests.Mapper
             }
             else
             {
-                fieldFromBigQuery(bigQueryValue).Value.ShouldBeEquivalentTo(expectedValueAgain.Value);
+                fieldFromBigQuery(bigQueryValue).Value.Should().BeEquivalentTo(expectedValueAgain.Value);
             }
         }
 
