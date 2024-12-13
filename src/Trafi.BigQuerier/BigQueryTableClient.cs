@@ -10,34 +10,33 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Trafi.BigQuerier
+namespace Trafi.BigQuerier;
+
+public class BigQueryTableClient : IBigQueryTableClient
 {
-    public class BigQueryTableClient : IBigQueryTableClient
+    private readonly BigQueryTable _table;
+
+    public BigQueryTableClient(BigQueryTable table)
     {
-        private readonly BigQueryTable _table;
+        _table = table;
+    }
 
-        public BigQueryTableClient(BigQueryTable table)
+    public async Task InsertRows(BigQueryInsertRow[] rows, CancellationToken ct)
+    {
+        try
         {
-            _table = table;
+            await _table.InsertRowsAsync(
+                rows,
+                new InsertOptions
+                {
+                    AllowUnknownFields = true,
+                },
+                cancellationToken: ct
+            );
         }
-
-        public async Task InsertRows(BigQueryInsertRow[] rows, CancellationToken ct)
+        catch (Exception ex)
         {
-            try
-            {
-                await _table.InsertRowsAsync(
-                    rows, 
-                    new InsertOptions
-                    {
-                        AllowUnknownFields = true,
-                    }, 
-                    cancellationToken: ct
-                );
-            }
-            catch (Exception ex)
-            {
-                throw new BigQuerierException($"Failed to insert row to {_table.FullyQualifiedId}", ex);
-            }
+            throw new BigQuerierException($"Failed to insert row to {_table.FullyQualifiedId}", ex);
         }
     }
 }

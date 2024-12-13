@@ -15,193 +15,192 @@ using System.Threading.Tasks;
 using Google.Apis.Bigquery.v2.Data;
 using Google.Cloud.BigQuery.V2;
 
-namespace Trafi.BigQuerier.Dispatcher
+namespace Trafi.BigQuerier.Dispatcher;
+
+public class DispatcherService : IDisposable
 {
-    public class DispatcherService : IDisposable
+    private struct QueueItem
     {
-        private struct QueueItem
+        public DateTime Time;
+        public BigQueryInsertRow Row;
+    }
+
+    private readonly Func<DateTime, string> _tableNameFun;
+    private readonly string _datasetId;
+    private readonly IBigQueryClient _client;
+    private readonly TableSchema _schema;
+    private readonly int _batchSize;
+
+    private readonly Dataset? _createDatasetOptions;
+
+    private readonly TimeSpan _timeToFinish = TimeSpan.FromSeconds(5);
+    private readonly TimeSpan _storageRestDuration = TimeSpan.FromMilliseconds(500);
+    private readonly TimeSpan _sendBatchInterval = TimeSpan.FromSeconds(2);
+    private const int MaxQueueLength = 1_000_000;
+
+    private DateTime _lastBatchSent = DateTime.MinValue;
+
+    private readonly BlockingCollection<QueueItem> _queue = new BlockingCollection<QueueItem>(MaxQueueLength);
+    private readonly ConcurrentQueue<QueueItem> _storageQueue = new ConcurrentQueue<QueueItem>();
+    private readonly CancellationTokenSource _tokenSource;
+    private readonly Task _consumeTask;
+    private readonly Task _storageTask;
+
+    private readonly IDispatchLogger? _logger;
+
+    public int? LastEntriesBatchSize { get; set; }
+    public TimeSpan? LastBatchSendTime { get; set; }
+    public int QueueSize => _queue.Count;
+
+    public DispatcherService(IBigQueryClient client,
+        TableSchema schema,
+        string datasetId,
+        Func<DateTime, string> tableNameFun,
+        int batchSize,
+        Dataset? createDatasetOptions = null,
+        IDispatchLogger? logger = null)
+    {
+        _client = client;
+        _schema = schema;
+        _datasetId = datasetId;
+        _tableNameFun = tableNameFun;
+        _batchSize = batchSize;
+        _createDatasetOptions = createDatasetOptions;
+        _logger = logger;
+
+        _tokenSource = new CancellationTokenSource();
+        _consumeTask = Task.Factory.StartNew(() => RunConsume(_tokenSource.Token), TaskCreationOptions.LongRunning);
+        _storageTask = Task.Factory.StartNew(() => RunStorage(_tokenSource.Token),
+            TaskCreationOptions.LongRunning);
+    }
+
+    public DispatcherService(
+        IBigQueryClient client,
+        TableSchema schema,
+        string datasetId,
+        Func<DateTime, string> tableNameFun,
+        Dataset? createDatasetOptions = null,
+        IDispatchLogger? logger = null) : this(client, schema, datasetId, tableNameFun, 100, createDatasetOptions, logger)
+    {
+    }
+
+    public void Dispatch(DateTime time, BigQueryInsertRow row)
+    {
+        Dispatch(time, row, CancellationToken.None);
+    }
+
+    public void Dispatch(DateTime time, BigQueryInsertRow row, CancellationToken ct)
+    {
+        var queueItem = new QueueItem
         {
-            public DateTime Time;
-            public BigQueryInsertRow Row;
-        }
+            Row = row,
+            Time = time
+        };
+        if (!_queue.TryAdd(queueItem, 0, ct))
+            _logger?.CannotAdd(queueItem.Row);
+    }
 
-        private readonly Func<DateTime, string> _tableNameFun;
-        private readonly string _datasetId;
-        private readonly IBigQueryClient _client;
-        private readonly TableSchema _schema;
-        private readonly int _batchSize;
+    public async Task<BigQueryDataset> GetOrCreateDatasetAsync(CancellationToken ct = default)
+    {
+        return await _client.InnerClient.GetOrCreateDatasetAsync(
+            _datasetId,
+            _createDatasetOptions,
+            cancellationToken: ct);
+    }
 
-        private readonly Dataset? _createDatasetOptions;
-
-        private readonly TimeSpan _timeToFinish = TimeSpan.FromSeconds(5);
-        private readonly TimeSpan _storageRestDuration = TimeSpan.FromMilliseconds(500);
-        private readonly TimeSpan _sendBatchInterval = TimeSpan.FromSeconds(2);
-        private const int MaxQueueLength = 1_000_000;
-
-        private DateTime _lastBatchSent = DateTime.MinValue;
-
-        private readonly BlockingCollection<QueueItem> _queue = new BlockingCollection<QueueItem>(MaxQueueLength);
-        private readonly ConcurrentQueue<QueueItem> _storageQueue = new ConcurrentQueue<QueueItem>();
-        private readonly CancellationTokenSource _tokenSource;
-        private readonly Task _consumeTask;
-        private readonly Task _storageTask;
-
-        private readonly IDispatchLogger? _logger;
-
-        public int? LastEntriesBatchSize { get; set; }
-        public TimeSpan? LastBatchSendTime { get; set; }
-        public int QueueSize => _queue.Count;
-
-        public DispatcherService(IBigQueryClient client,
-            TableSchema schema,
-            string datasetId,
-            Func<DateTime, string> tableNameFun,
-            int batchSize,
-            Dataset? createDatasetOptions = null,
-            IDispatchLogger? logger = null)
+    private void RunConsume(CancellationToken ct)
+    {
+        try
         {
-            _client = client;
-            _schema = schema;
-            _datasetId = datasetId;
-            _tableNameFun = tableNameFun;
-            _batchSize = batchSize;
-            _createDatasetOptions = createDatasetOptions;
-            _logger = logger;
-
-            _tokenSource = new CancellationTokenSource();
-            _consumeTask = Task.Factory.StartNew(() => RunConsume(_tokenSource.Token), TaskCreationOptions.LongRunning);
-            _storageTask = Task.Factory.StartNew(() => RunStorage(_tokenSource.Token),
-                TaskCreationOptions.LongRunning);
-        }
-        
-        public DispatcherService(
-            IBigQueryClient client,
-            TableSchema schema,
-            string datasetId,
-            Func<DateTime, string> tableNameFun,
-            Dataset? createDatasetOptions = null,
-            IDispatchLogger? logger = null) : this(client, schema, datasetId, tableNameFun, 100, createDatasetOptions, logger)
-        {
-        }
-
-        public void Dispatch(DateTime time, BigQueryInsertRow row)
-        {
-            Dispatch(time, row, CancellationToken.None);
-        }
-
-        public void Dispatch(DateTime time, BigQueryInsertRow row, CancellationToken ct)
-        {
-            var queueItem = new QueueItem
+            foreach (var item in _queue.GetConsumingEnumerable(ct))
             {
-                Row = row,
-                Time = time
-            };
-            if (!_queue.TryAdd(queueItem, 0, ct))
-                _logger?.CannotAdd(queueItem.Row);
+                _storageQueue.Enqueue(item);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private void RunStorage(CancellationToken ct)
+    {
+        while (!ct.IsCancellationRequested)
+        {
+            if (_storageQueue.Count >= _batchSize)
+            {
+                Save(_batchSize, ct: ct);
+            }
+            else if (DateTime.UtcNow.Subtract(_lastBatchSent) > _sendBatchInterval && !_storageQueue.IsEmpty)
+            {
+                Save(_storageQueue.Count, ct: ct);
+            }
+            ct.WaitHandle.WaitOne(_storageRestDuration);
         }
 
-        public async Task<BigQueryDataset> GetOrCreateDatasetAsync(CancellationToken ct = default)
+        while (!_storageQueue.IsEmpty)
         {
-            return await _client.InnerClient.GetOrCreateDatasetAsync(
-                _datasetId,
-                _createDatasetOptions,
-                cancellationToken: ct);
+            var count = Math.Min(_storageQueue.Count, _batchSize);
+            Save(count, ct: ct);
         }
+    }
 
-        private void RunConsume(CancellationToken ct)
+    private void Save(int count, CancellationToken ct = default)
+    {
+        var items = new List<QueueItem>();
+        for (var i = 0; i < count; i++)
         {
+            if (_storageQueue.TryDequeue(out var item))
+                items.Add(item);
+        }
+        Store(items, ct: ct);
+        _lastBatchSent = DateTime.UtcNow;
+    }
+
+    private void Store(IReadOnlyCollection<QueueItem> items, CancellationToken ct = default)
+    {
+        var sw = Stopwatch.StartNew();
+        var traceId = Guid.NewGuid().ToString();
+        var stored = 0;
+        foreach (var batch in items.GroupBy(item => _tableNameFun(item.Time)))
+        {
+            var tableName = batch.Key;
+            var insertRows = batch.Select(b => b.Row).ToArray();
             try
             {
-                foreach (var item in _queue.GetConsumingEnumerable(ct))
-                {
-                    _storageQueue.Enqueue(item);
-                }
+                var client = _client.GetTableClient(_datasetId, tableName, _schema,
+                    createDatasetOptions: _createDatasetOptions,
+                    ct: ct).Result;
+
+                stored += insertRows.Length;
+                _logger?.InsertRows(insertRows.Length, traceId);
+
+                client.InsertRows(insertRows, CancellationToken.None).Wait(ct);
             }
-            catch (OperationCanceledException)
+            catch (Exception ex)
             {
+                _logger?.InsertError(ex, insertRows, traceId);
             }
         }
+        sw.Stop();
+        LastBatchSendTime = sw.Elapsed;
+        LastEntriesBatchSize = items.Count;
+        _logger?.Stored(
+            stored: stored,
+            timeTakenMs: (int)sw.Elapsed.TotalMilliseconds,
+            remainingInQueue: _storageQueue.Count,
+            traceId: traceId);
+    }
 
-        private void RunStorage(CancellationToken ct)
-        {
-            while (!ct.IsCancellationRequested)
-            {
-                if (_storageQueue.Count >= _batchSize)
-                {
-                    Save(_batchSize, ct: ct);
-                }
-                else if (DateTime.UtcNow.Subtract(_lastBatchSent) > _sendBatchInterval && !_storageQueue.IsEmpty)
-                {
-                    Save(_storageQueue.Count, ct: ct);
-                }
-                ct.WaitHandle.WaitOne(_storageRestDuration);
-            }
+    public void Dispose()
+    {
+        _queue.CompleteAdding();
+        _consumeTask.Wait(_timeToFinish);
+        _tokenSource.Cancel();
 
-            while (!_storageQueue.IsEmpty)
-            {
-                var count = Math.Min(_storageQueue.Count, _batchSize);
-                Save(count, ct: ct);
-            }
-        }
+        _logger?.WaitForEnd();
+        _storageTask.Wait();
 
-        private void Save(int count, CancellationToken ct = default)
-        {
-            var items = new List<QueueItem>();
-            for (var i = 0; i < count; i++)
-            {
-                if (_storageQueue.TryDequeue(out var item))
-                    items.Add(item);
-            }
-            Store(items, ct: ct);
-            _lastBatchSent = DateTime.UtcNow;
-        }
-
-        private void Store(IReadOnlyCollection<QueueItem> items, CancellationToken ct = default)
-        {
-            var sw = Stopwatch.StartNew();
-            var traceId = Guid.NewGuid().ToString();
-            var stored = 0;
-            foreach (var batch in items.GroupBy(item => _tableNameFun(item.Time)))
-            {
-                var tableName = batch.Key;
-                var insertRows = batch.Select(b => b.Row).ToArray();
-                try
-                {
-                    var client = _client.GetTableClient(_datasetId, tableName, _schema,
-                        createDatasetOptions: _createDatasetOptions,
-                        ct: ct).Result;
-
-                    stored += insertRows.Length;
-                    _logger?.InsertRows(insertRows.Length, traceId);
-
-                    client.InsertRows(insertRows, CancellationToken.None).Wait(ct);
-                }
-                catch (Exception ex)
-                {
-                    _logger?.InsertError(ex, insertRows, traceId);
-                }
-            }
-            sw.Stop();
-            LastBatchSendTime = sw.Elapsed;
-            LastEntriesBatchSize = items.Count;
-            _logger?.Stored(
-                stored: stored,
-                timeTakenMs: (int)sw.Elapsed.TotalMilliseconds,
-                remainingInQueue: _storageQueue.Count,
-                traceId: traceId);
-        }
-
-        public void Dispose()
-        {
-            _queue.CompleteAdding();
-            _consumeTask.Wait(_timeToFinish);
-            _tokenSource.Cancel();
-
-            _logger?.WaitForEnd();
-            _storageTask.Wait();
-
-            if (!_storageQueue.IsEmpty)
-                _logger?.UnsentRows(_storageQueue.Select(q => q.Row).ToArray());
-        }
+        if (!_storageQueue.IsEmpty)
+            _logger?.UnsentRows(_storageQueue.Select(q => q.Row).ToArray());
     }
 }

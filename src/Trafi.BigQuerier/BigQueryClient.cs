@@ -17,192 +17,191 @@ using System.Security.Cryptography.X509Certificates;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Trafi.BigQuerier
+namespace Trafi.BigQuerier;
+
+/// <summary>
+/// Big queries for simple people.
+/// </summary>
+public class BigQueryClient : IBigQueryClient
 {
-    /// <summary>
-    /// Big queries for simple people.
-    /// </summary>
-    public class BigQueryClient : IBigQueryClient
+    public Google.Cloud.BigQuery.V2.BigQueryClient InnerClient { get; }
+
+    public BigQueryClient(
+        string projectId,
+        string certFileName,
+        string certSecret,
+        string email
+    )
     {
-        public Google.Cloud.BigQuery.V2.BigQueryClient InnerClient { get; }
-
-        public BigQueryClient(
-            string projectId,
-            string certFileName,
-            string certSecret,
-            string email
-        )
+        if (!File.Exists(certFileName))
         {
-            if (!File.Exists(certFileName))
-            {
-                throw new BigQuerierException(
-                    $"Initializing BigQueryClient failed: certificate not found:certFile={certFileName}"
-                );
-            }
-
-            var certificate = new X509Certificate2(
-                certFileName,
-                certSecret,
-                X509KeyStorageFlags.MachineKeySet | X509KeyStorageFlags.PersistKeySet | X509KeyStorageFlags.Exportable
-            );
-
-            var serviceAccountCredential = new ServiceAccountCredential(
-                new ServiceAccountCredential.Initializer(email)
-                {
-                    Scopes = new[] {BigqueryService.Scope.CloudPlatform}
-                }.FromCertificate(certificate));
-
-            InnerClient = new BigQueryClientImpl(
-                projectId,
-                new BigqueryService(new BaseClientService.Initializer()
-                {
-                    HttpClientInitializer = serviceAccountCredential,
-                    ApplicationName = "BigQuery API Service",
-                })
+            throw new BigQuerierException(
+                $"Initializing BigQueryClient failed: certificate not found:certFile={certFileName}"
             );
         }
 
-        public BigQueryClient(Google.Cloud.BigQuery.V2.BigQueryClient bigQueryClient)
+        var certificate = new X509Certificate2(
+            certFileName,
+            certSecret,
+            X509KeyStorageFlags.MachineKeySet | X509KeyStorageFlags.PersistKeySet | X509KeyStorageFlags.Exportable
+        );
+
+        var serviceAccountCredential = new ServiceAccountCredential(
+            new ServiceAccountCredential.Initializer(email)
+            {
+                Scopes = new[] {BigqueryService.Scope.CloudPlatform}
+            }.FromCertificate(certificate));
+
+        InnerClient = new BigQueryClientImpl(
+            projectId,
+            new BigqueryService(new BaseClientService.Initializer()
+            {
+                HttpClientInitializer = serviceAccountCredential,
+                ApplicationName = "BigQuery API Service",
+            })
+        );
+    }
+
+    public BigQueryClient(Google.Cloud.BigQuery.V2.BigQueryClient bigQueryClient)
+    {
+        InnerClient = bigQueryClient;
+    }
+
+    public async Task DeleteTable(
+        string datasetId,
+        string tableId,
+        CancellationToken ct = default
+    )
+    {
+        try
         {
-            InnerClient = bigQueryClient;
+            await InnerClient.DeleteTableAsync(datasetId, tableId, cancellationToken: ct);
+        }
+        catch (Exception ex)
+        {
+            throw new BigQuerierException($"Failed to delete table {datasetId}.{tableId}", ex);
+        }
+    }
+
+    public async Task<IBigQueryTableClient> GetTableClient(
+        string datasetId,
+        string tableId,
+        TableSchema schema,
+        Dataset? createDatasetOptions = null,
+        CancellationToken ct = default
+    )
+    {
+        try
+        {
+            var datasetOptions = createDatasetOptions ?? new Dataset();
+            var dataset = await InnerClient.GetOrCreateDatasetAsync(
+                datasetId,
+                datasetOptions,
+                cancellationToken: ct);
+            var table = await dataset.GetOrCreateTableAsync(
+                tableId,
+                schema,
+                cancellationToken: ct);
+
+            return new BigQueryTableClient(table);
+        }
+        catch (Exception ex)
+        {
+            throw new BigQuerierException($"Failed to create dataset {datasetId} or table {tableId}", ex);
+        }
+    }
+
+    public async Task<IAsyncEnumerable<BigQueryRow>> Query(
+        string sql,
+        QueryOptions? options = null,
+        CancellationToken ct = default
+    )
+    {
+        BigQueryJob job;
+        try
+        {
+            job = await InnerClient.CreateQueryJobAsync(sql, options: options, cancellationToken: ct, parameters: null);
+        }
+        catch (Exception ex)
+        {
+            throw new BigQuerierException($"Failed to create big query job for sql {sql}", ex);
         }
 
-        public async Task DeleteTable(
-            string datasetId,
-            string tableId,
-            CancellationToken ct = default
-        )
+        try
         {
-            try
-            {
-                await InnerClient.DeleteTableAsync(datasetId, tableId, cancellationToken: ct);
-            }
-            catch (Exception ex)
-            {
-                throw new BigQuerierException($"Failed to delete table {datasetId}.{tableId}", ex);
-            }
+            await job.PollUntilCompletedAsync(cancellationToken: ct);
+        }
+        catch (Exception ex)
+        {
+            throw new BigQuerierException($"Failed to poll big query job to completion {sql}", ex, job.Status);
         }
 
-        public async Task<IBigQueryTableClient> GetTableClient(
-            string datasetId,
-            string tableId,
-            TableSchema schema,
-            Dataset? createDatasetOptions = null,
-            CancellationToken ct = default
-        )
-        {
-            try
-            {
-                var datasetOptions = createDatasetOptions ?? new Dataset();
-                var dataset = await InnerClient.GetOrCreateDatasetAsync(
-                    datasetId,
-                    datasetOptions,
-                    cancellationToken: ct);
-                var table = await dataset.GetOrCreateTableAsync(
-                    tableId,
-                    schema,
-                    cancellationToken: ct);
+        BigQueryResults results;
 
-                return new BigQueryTableClient(table);
-            }
-            catch (Exception ex)
-            {
-                throw new BigQuerierException($"Failed to create dataset {datasetId} or table {tableId}", ex);
-            }
+        try
+        {
+            results = await job.GetQueryResultsAsync(cancellationToken: ct);
+        }
+        catch (Exception ex)
+        {
+            throw new BigQuerierException($"Failed to get job results {sql}", ex, job.Status);
         }
 
-        public async Task<IAsyncEnumerable<BigQueryRow>> Query(
-            string sql,
-            QueryOptions? options = null,
-            CancellationToken ct = default
-        )
+        try
         {
-            BigQueryJob job;
-            try
-            {
-                job = await InnerClient.CreateQueryJobAsync(sql, options: options, cancellationToken: ct, parameters: null);
-            }
-            catch (Exception ex)
-            {
-                throw new BigQuerierException($"Failed to create big query job for sql {sql}", ex);
-            }
+            return results.GetRowsAsync();
+        }
+        catch (Exception ex)
+        {
+            throw new BigQuerierException($"Failed to get rows {sql}", ex);
+        }
+    }
 
-            try
-            {
-                await job.PollUntilCompletedAsync(cancellationToken: ct);
-            }
-            catch (Exception ex)
-            {
-                throw new BigQuerierException($"Failed to poll big query job to completion {sql}", ex, job.Status);
-            }
+    public async Task<IAsyncEnumerable<BigQueryRow>> ParametricQuery(
+        string sql,
+        IList<BigQueryParameter> namedParameters,
+        QueryOptions options,
+        CancellationToken ct = default)
+    {
+        BigQueryJob job;
 
-            BigQueryResults results;
-
-            try
-            {
-                results = await job.GetQueryResultsAsync(cancellationToken: ct);
-            }
-            catch (Exception ex)
-            {
-                throw new BigQuerierException($"Failed to get job results {sql}", ex, job.Status);
-            }
-
-            try
-            {
-                return results.GetRowsAsync();
-            }
-            catch (Exception ex)
-            {
-                throw new BigQuerierException($"Failed to get rows {sql}", ex);
-            }
+        try
+        {
+            job = await InnerClient.CreateQueryJobAsync(sql, options: options, cancellationToken: ct, parameters: namedParameters);
+        }
+        catch (Exception ex)
+        {
+            throw new BigQuerierException($"Failed to create big query job for sql {sql}", ex);
         }
 
-        public async Task<IAsyncEnumerable<BigQueryRow>> ParametricQuery(
-            string sql,
-            IList<BigQueryParameter> namedParameters,
-            QueryOptions options,
-            CancellationToken ct = default)
+        try
         {
-            BigQueryJob job;
+            await job.PollUntilCompletedAsync(cancellationToken: ct);
+        }
+        catch (Exception ex)
+        {
+            throw new BigQuerierException($"Failed to poll big query job to completion {sql}", ex,
+                job.Status);
+        }
 
-            try
-            {
-                job = await InnerClient.CreateQueryJobAsync(sql, options: options, cancellationToken: ct, parameters: namedParameters);
-            }
-            catch (Exception ex)
-            {
-                throw new BigQuerierException($"Failed to create big query job for sql {sql}", ex);
-            }
+        BigQueryResults results;
 
-            try
-            {
-                await job.PollUntilCompletedAsync(cancellationToken: ct);
-            }
-            catch (Exception ex)
-            {
-                throw new BigQuerierException($"Failed to poll big query job to completion {sql}", ex,
-                    job.Status);
-            }
+        try
+        {
+            results = await job.GetQueryResultsAsync(cancellationToken: ct);
+        }
+        catch (Exception ex)
+        {
+            throw new BigQuerierException($"Failed to get job results {sql}", ex, job.Status);
+        }
 
-            BigQueryResults results;
-
-            try
-            {
-                results = await job.GetQueryResultsAsync(cancellationToken: ct);
-            }
-            catch (Exception ex)
-            {
-                throw new BigQuerierException($"Failed to get job results {sql}", ex, job.Status);
-            }
-
-            try
-            {
-                return results.GetRowsAsync();
-            }
-            catch (Exception ex)
-            {
-                throw new BigQuerierException($"Failed to get rows {sql}", ex);
-            }
+        try
+        {
+            return results.GetRowsAsync();
+        }
+        catch (Exception ex)
+        {
+            throw new BigQuerierException($"Failed to get rows {sql}", ex);
         }
     }
 }
