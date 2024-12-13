@@ -72,11 +72,11 @@ public static class Record
             .Select(p => new { Mapper = Property.GetPropertySetFromObjectFunction(p), Name = p.Name })
             .ToArray();
 
-        var constructor = type.GetConstructor(new Type[] { });
+        var constructor = type.GetConstructor([]);
 
         return row =>
         {
-            var obj = constructor.Invoke(new object[] { });
+            var obj = constructor.Invoke([]);
             foreach (var item in propertyMappers)
             {
                 object rowField;
@@ -116,8 +116,7 @@ public static class Record
             var obj = Activator.CreateInstance(type);
             foreach (var item in propertyMappers)
             {
-                object rowField;
-                if (row.TryGetValue(item.Name, out rowField))
+                if (row.TryGetValue(item.Name, out var rowField))
                 {
                     item.Mapper(rowField, obj);
                 }
