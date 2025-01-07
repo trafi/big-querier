@@ -9,44 +9,43 @@ using Google.Apis.Bigquery.v2.Data;
 using Google.Cloud.BigQuery.V2;
 using Trafi.BigQuerier.Mapper;
 
-namespace Trafi.BigQuerier
+namespace Trafi.BigQuerier;
+
+public class Contract<T>
 {
-    public class Contract<T>
+    private Contract(ContractCache cache)
     {
-        private Contract(ContractCache cache)
-        {
-            Cache = cache;
-        }
+        Cache = cache;
+    }
 
-        public static Contract<T> Create()
-        {
-            var type = typeof(T);
+    public static Contract<T> Create()
+    {
+        var type = typeof(T);
 
-            return new Contract<T>(
-                new ContractCache(
-                    Record.GetSchema(type),
-                    Record.GetValueToBigQueryFunction(type),
-                    Record.GetValueFromBigQueryFunction(type)
-                )
-            );
-        }
+        return new Contract<T>(
+            new ContractCache(
+                Record.GetSchema(type),
+                Record.GetValueToBigQueryFunction(type),
+                Record.GetValueFromBigQueryFunction(type)
+            )
+        );
+    }
 
-        public ContractCache Cache { get; }
+    public ContractCache Cache { get; }
 
-        public TableSchema Schema => Cache.Schema;
+    public TableSchema Schema => Cache.Schema;
 
-        #nullable disable
-        
-        public BigQueryInsertRow ToRow(T value)
-        {
-            return (BigQueryInsertRow) Cache.ValueToRow(value);
-        }
-        
-        #nullable restore
+#nullable disable
 
-        public T FromRow(BigQueryRow resultRow)
-        {
-            return (T) Cache.ValueFromRow(resultRow);
-        }
+    public BigQueryInsertRow ToRow(T value)
+    {
+        return (BigQueryInsertRow) Cache.ValueToRow(value);
+    }
+
+#nullable restore
+
+    public T FromRow(BigQueryRow resultRow)
+    {
+        return (T) Cache.ValueFromRow(resultRow);
     }
 }

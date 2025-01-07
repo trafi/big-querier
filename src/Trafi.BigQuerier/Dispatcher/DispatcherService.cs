@@ -15,193 +15,248 @@ using System.Threading.Tasks;
 using Google.Apis.Bigquery.v2.Data;
 using Google.Cloud.BigQuery.V2;
 
-namespace Trafi.BigQuerier.Dispatcher
+namespace Trafi.BigQuerier.Dispatcher;
+
+public class DispatcherService : IDisposable
 {
-    public class DispatcherService : IDisposable
+    private struct QueueItem
     {
-        private struct QueueItem
+        public DateTime Time;
+        public BigQueryInsertRow Row;
+    }
+
+    private readonly Func<DateTime, string> _tableNameFun;
+    private readonly string _datasetId;
+    private readonly IBigQueryClient _client;
+    private readonly TableSchema _schema;
+    private readonly int _batchSize;
+    private readonly int _maxQueueLength;
+    private readonly AsyncSemaphore _activeDispatchesSemaphore;
+    private readonly ManualResetEventSlim _pauseManualResetEvent = new(false);
+    private readonly ConcurrentDictionary<AsyncSemaphore.Entry, Task> _dispatchToBigQueryTasks = [];
+
+    private readonly Dataset? _createDatasetOptions;
+
+    private readonly TimeSpan _sendBatchInterval = TimeSpan.FromSeconds(2);
+    private DateTimeOffset _lastDispatchCheck = DateTimeOffset.MinValue;
+
+    private readonly ConcurrentQueue<QueueItem> _outboundQueue = new();
+    private readonly Task _internalDispatchTask;
+    private bool _disposing = false;
+
+    private readonly IDispatchLogger? _logger;
+
+    private TimeProvider _timeProvider = TimeProvider.System;
+
+    public int QueueSize => _outboundQueue.Count;
+
+    public DispatcherService(IBigQueryClient client,
+        TableSchema schema,
+        string datasetId,
+        Func<DateTime, string> tableNameFun,
+        int batchSize,
+        int concurrentDispatches = 1,
+        int maxQueueLength = 1_000_000,
+        Dataset? createDatasetOptions = null,
+        IDispatchLogger? logger = null)
+    {
+        _client = client;
+        _schema = schema;
+        _datasetId = datasetId;
+        _tableNameFun = tableNameFun;
+        _batchSize = batchSize;
+        _maxQueueLength = maxQueueLength;
+        _activeDispatchesSemaphore = new AsyncSemaphore(concurrentDispatches);
+        _createDatasetOptions = createDatasetOptions;
+        _logger = logger;
+
+        _internalDispatchTask = Task.Run(RunInternalDispatch);
+    }
+
+    public DispatcherService(
+        IBigQueryClient client,
+        TableSchema schema,
+        string datasetId,
+        Func<DateTime, string> tableNameFun,
+        Dataset? createDatasetOptions = null,
+        IDispatchLogger? logger = null) :
+        this(client, schema, datasetId, tableNameFun,
+            batchSize: 100,
+            concurrentDispatches: 1,
+            maxQueueLength: 1_000_000,
+            createDatasetOptions,
+            logger)
+    {
+    }
+
+    /// <summary>
+    /// Enqueues a row to be dispatched to BigQuery.
+    /// </summary>
+    /// <param name="time">Time for determining table name, passed to tableNameFun</param>
+    /// <param name="row">Row to insert to BigQuery</param>
+    public void Dispatch(DateTime time, BigQueryInsertRow row)
+    {
+        var queueSize = _outboundQueue.Count;
+        if (queueSize >= _maxQueueLength)
         {
-            public DateTime Time;
-            public BigQueryInsertRow Row;
+            _logger?.CannotAdd(row);
+            return;
         }
 
-        private readonly Func<DateTime, string> _tableNameFun;
-        private readonly string _datasetId;
-        private readonly IBigQueryClient _client;
-        private readonly TableSchema _schema;
-        private readonly int _batchSize;
-
-        private readonly Dataset? _createDatasetOptions;
-
-        private readonly TimeSpan _timeToFinish = TimeSpan.FromSeconds(5);
-        private readonly TimeSpan _storageRestDuration = TimeSpan.FromMilliseconds(500);
-        private readonly TimeSpan _sendBatchInterval = TimeSpan.FromSeconds(2);
-        private const int MaxQueueLength = 1_000_000;
-
-        private DateTime _lastBatchSent = DateTime.MinValue;
-
-        private readonly BlockingCollection<QueueItem> _queue = new BlockingCollection<QueueItem>(MaxQueueLength);
-        private readonly ConcurrentQueue<QueueItem> _storageQueue = new ConcurrentQueue<QueueItem>();
-        private readonly CancellationTokenSource _tokenSource;
-        private readonly Task _consumeTask;
-        private readonly Task _storageTask;
-
-        private readonly IDispatchLogger? _logger;
-
-        public int? LastEntriesBatchSize { get; set; }
-        public TimeSpan? LastBatchSendTime { get; set; }
-        public int QueueSize => _queue.Count;
-
-        public DispatcherService(IBigQueryClient client,
-            TableSchema schema,
-            string datasetId,
-            Func<DateTime, string> tableNameFun,
-            int batchSize,
-            Dataset? createDatasetOptions = null,
-            IDispatchLogger? logger = null)
+        var queueItem = new QueueItem
         {
-            _client = client;
-            _schema = schema;
-            _datasetId = datasetId;
-            _tableNameFun = tableNameFun;
-            _batchSize = batchSize;
-            _createDatasetOptions = createDatasetOptions;
-            _logger = logger;
+            Row = row,
+            Time = time
+        };
 
-            _tokenSource = new CancellationTokenSource();
-            _consumeTask = Task.Factory.StartNew(() => RunConsume(_tokenSource.Token), TaskCreationOptions.LongRunning);
-            _storageTask = Task.Factory.StartNew(() => RunStorage(_tokenSource.Token),
-                TaskCreationOptions.LongRunning);
-        }
-        
-        public DispatcherService(
-            IBigQueryClient client,
-            TableSchema schema,
-            string datasetId,
-            Func<DateTime, string> tableNameFun,
-            Dataset? createDatasetOptions = null,
-            IDispatchLogger? logger = null) : this(client, schema, datasetId, tableNameFun, 100, createDatasetOptions, logger)
-        {
-        }
+        _outboundQueue.Enqueue(queueItem);
+        if (queueSize + 1 == _batchSize)
+            _pauseManualResetEvent.Set();
+    }
 
-        public void Dispatch(DateTime time, BigQueryInsertRow row)
-        {
-            Dispatch(time, row, CancellationToken.None);
-        }
+    public async Task<BigQueryDataset> GetOrCreateDatasetAsync(CancellationToken ct = default)
+    {
+        return await _client.InnerClient.GetOrCreateDatasetAsync(
+            _datasetId,
+            _createDatasetOptions,
+            cancellationToken: ct);
+    }
 
-        public void Dispatch(DateTime time, BigQueryInsertRow row, CancellationToken ct)
+    private async Task RunInternalDispatch()
+    {
+        while (true)
         {
-            var queueItem = new QueueItem
+            var pause = _sendBatchInterval - (_timeProvider.GetUtcNow() - _lastDispatchCheck);
+            var queueSize = _outboundQueue.Count;
+            var shouldPauseForUnfilledBatch = pause > TimeSpan.Zero && queueSize < _batchSize;
+            if (shouldPauseForUnfilledBatch && !_disposing)
             {
-                Row = row,
-                Time = time
-            };
-            if (!_queue.TryAdd(queueItem, 0, ct))
-                _logger?.CannotAdd(queueItem.Row);
-        }
-
-        public async Task<BigQueryDataset> GetOrCreateDatasetAsync(CancellationToken ct = default)
-        {
-            return await _client.InnerClient.GetOrCreateDatasetAsync(
-                _datasetId,
-                _createDatasetOptions,
-                cancellationToken: ct);
-        }
-
-        private void RunConsume(CancellationToken ct)
-        {
-            try
-            {
-                foreach (var item in _queue.GetConsumingEnumerable(ct))
-                {
-                    _storageQueue.Enqueue(item);
-                }
-            }
-            catch (OperationCanceledException)
-            {
-            }
-        }
-
-        private void RunStorage(CancellationToken ct)
-        {
-            while (!ct.IsCancellationRequested)
-            {
-                if (_storageQueue.Count >= _batchSize)
-                {
-                    Save(_batchSize, ct: ct);
-                }
-                else if (DateTime.UtcNow.Subtract(_lastBatchSent) > _sendBatchInterval && !_storageQueue.IsEmpty)
-                {
-                    Save(_storageQueue.Count, ct: ct);
-                }
-                ct.WaitHandle.WaitOne(_storageRestDuration);
-            }
-
-            while (!_storageQueue.IsEmpty)
-            {
-                var count = Math.Min(_storageQueue.Count, _batchSize);
-                Save(count, ct: ct);
-            }
-        }
-
-        private void Save(int count, CancellationToken ct = default)
-        {
-            var items = new List<QueueItem>();
-            for (var i = 0; i < count; i++)
-            {
-                if (_storageQueue.TryDequeue(out var item))
-                    items.Add(item);
-            }
-            Store(items, ct: ct);
-            _lastBatchSent = DateTime.UtcNow;
-        }
-
-        private void Store(IReadOnlyCollection<QueueItem> items, CancellationToken ct = default)
-        {
-            var sw = Stopwatch.StartNew();
-            var traceId = Guid.NewGuid().ToString();
-            var stored = 0;
-            foreach (var batch in items.GroupBy(item => _tableNameFun(item.Time)))
-            {
-                var tableName = batch.Key;
-                var insertRows = batch.Select(b => b.Row).ToArray();
+                // Since ManualResetEventSlim doesn't have TimeProvider enabled API, we use CancellationTokenSource
+                // to enable cancelling the wait from tests
+                var cts = new CancellationTokenSource(pause, _timeProvider);
                 try
                 {
-                    var client = _client.GetTableClient(_datasetId, tableName, _schema,
-                        createDatasetOptions: _createDatasetOptions,
-                        ct: ct).Result;
-
-                    stored += insertRows.Length;
-                    _logger?.InsertRows(insertRows.Length, traceId);
-
-                    client.InsertRows(insertRows, CancellationToken.None).Wait(ct);
+                    var signaled = _pauseManualResetEvent.Wait(pause, cts.Token);
+                    if (signaled)
+                        _pauseManualResetEvent.Reset();
                 }
-                catch (Exception ex)
+                catch (OperationCanceledException)
                 {
-                    _logger?.InsertError(ex, insertRows, traceId);
                 }
+
+                // Update queue size after pause
+                queueSize = _outboundQueue.Count;
             }
-            sw.Stop();
-            LastBatchSendTime = sw.Elapsed;
-            LastEntriesBatchSize = items.Count;
-            _logger?.Stored(
-                stored: stored,
-                timeTakenMs: (int)sw.Elapsed.TotalMilliseconds,
-                remainingInQueue: _storageQueue.Count,
-                traceId: traceId);
+
+            _lastDispatchCheck = _timeProvider.GetUtcNow();
+
+            if (queueSize == 0)
+            {
+                if (_disposing)
+                    break;
+
+                continue;
+            }
+
+            // Can enter up to the `concurrentDispatches` limit
+            var entry = await _activeDispatchesSemaphore.Enter(CancellationToken.None);
+
+            var batch = DequeueBatch(Math.Min(_batchSize, queueSize));
+            // We track active dispatches to wait for them to finish when dispatcher is disposed/stopped/cancelled
+            _dispatchToBigQueryTasks[entry] = Task.Run(async () =>
+            {
+                using (entry) // Release semaphore when done
+                {
+                    await DispatchToBigQuerySafe(batch);
+                    _dispatchToBigQueryTasks.Remove(entry, out _);
+                }
+            });
         }
 
-        public void Dispose()
+        // Wait for all remaining tasks to finish when dispatcher is disposed/stopped/cancelled
+        await Task.WhenAll(_dispatchToBigQueryTasks.Values);
+    }
+
+    private List<QueueItem> DequeueBatch(int count)
+    {
+        var items = new List<QueueItem>(count);
+        for (var i = 0; i < count; i++)
         {
-            _queue.CompleteAdding();
-            _consumeTask.Wait(_timeToFinish);
-            _tokenSource.Cancel();
+            if (!_outboundQueue.TryDequeue(out var item))
+                break;
 
-            _logger?.WaitForEnd();
-            _storageTask.Wait();
-
-            if (!_storageQueue.IsEmpty)
-                _logger?.UnsentRows(_storageQueue.Select(q => q.Row).ToArray());
+            items.Add(item);
         }
+
+        return items;
+    }
+
+    private async Task DispatchToBigQuerySafe(IReadOnlyCollection<QueueItem> items)
+    {
+        var traceId = Guid.NewGuid().ToString();
+
+        try
+        {
+            await DispatchToBigQuery(items, traceId);
+        }
+        catch (Exception e)
+        {
+            _logger?.InsertError(e, items.Select(b => b.Row).ToArray(), traceId);
+        }
+    }
+
+    private async Task DispatchToBigQuery(IReadOnlyCollection<QueueItem> items, string traceId)
+    {
+        var sw = Stopwatch.StartNew();
+        var stored = 0;
+
+        foreach (var batch in items.GroupBy(item => _tableNameFun(item.Time)))
+        {
+            var tableName = batch.Key;
+            var insertRows = batch.Select(b => b.Row).ToArray();
+            try
+            {
+                var client = await _client.GetTableClient(
+                    _datasetId, tableName, _schema,
+                    createDatasetOptions: _createDatasetOptions);
+
+                stored += insertRows.Length;
+                _logger?.InsertRows(insertRows.Length, traceId);
+
+                await client.InsertRows(insertRows, CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                _logger?.InsertError(ex, insertRows, traceId);
+            }
+        }
+
+        sw.Stop();
+        _logger?.Stored(
+            stored: stored,
+            timeTakenMs: (int)sw.Elapsed.TotalMilliseconds,
+            remainingInQueue: _outboundQueue.Count,
+            traceId: traceId);
+    }
+
+    public void Dispose()
+    {
+        _disposing = true;
+        _pauseManualResetEvent.Set();
+
+        _logger?.WaitForEnd();
+        _internalDispatchTask.Wait();
+
+        if (!_outboundQueue.IsEmpty)
+            _logger?.UnsentRows(_outboundQueue.Select(q => q.Row).ToArray());
+    }
+
+    internal static class TestAccessor
+    {
+        internal static void SetTimeProvider(DispatcherService dispatcherService, TimeProvider timeProvider)
+            => dispatcherService._timeProvider = timeProvider;
+
+        internal static ICollection<Task> GetDispatchToBigQueryTasks(DispatcherService dispatcherService)
+            => dispatcherService._dispatchToBigQueryTasks.Values;
     }
 }

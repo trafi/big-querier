@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>    
-    <TargetFramework>net6.0</TargetFramework>
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <WarningsAsErrors>CS8600;CS8604;CS8602;CS8625;CS8632;CS8603;CS8618;CS8619;CS8767;CS8613;CS8601;CS8620</WarningsAsErrors>
@@ -29,5 +29,9 @@
   <ItemGroup>
     <PackageReference Include="Google.Apis.Auth" Version="1.54.0" />
     <PackageReference Include="Google.Cloud.BigQuery.V2" Version="2.3.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Trafi.BigQuerier.Tests" />
   </ItemGroup>
 </Project>
