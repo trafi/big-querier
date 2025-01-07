@@ -24,5 +24,5 @@ public interface IDispatchLogger
     /// <param name="timeTakenMs">Time taken to Store the batch in milliseconds</param>
     /// <param name="remainingInQueue">Items remaining in queue</param>
     /// <param name="traceId">TraceId, unique per Storage attempt</param>
-    void Stored(int stored, int timeTakenMs, int remainingInQueue, string traceId);
+    void Stored(int stored, int timeTakenMs, int remainingInQueue, string traceId, int worker);
 }

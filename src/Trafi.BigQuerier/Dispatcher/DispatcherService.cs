@@ -167,7 +167,7 @@ public class DispatcherService : IDisposable
             {
                 using (entry) // Release semaphore when done
                 {
-                    await DispatchToBigQuerySafe(batch);
+                    await DispatchToBigQuerySafe(batch, entry.Entrance);
                     _dispatchToBigQueryTasks.Remove(entry, out _);
                 }
             });
@@ -191,13 +191,13 @@ public class DispatcherService : IDisposable
         return items;
     }
 
-    private async Task DispatchToBigQuerySafe(IReadOnlyCollection<QueueItem> items)
+    private async Task DispatchToBigQuerySafe(IReadOnlyCollection<QueueItem> items, int worker)
     {
         var traceId = Guid.NewGuid().ToString();
 
         try
         {
-            await DispatchToBigQuery(items, traceId);
+            await DispatchToBigQuery(items, worker, traceId);
         }
         catch (Exception e)
         {
@@ -205,7 +205,7 @@ public class DispatcherService : IDisposable
         }
     }
 
-    private async Task DispatchToBigQuery(IReadOnlyCollection<QueueItem> items, string traceId)
+    private async Task DispatchToBigQuery(IReadOnlyCollection<QueueItem> items, int worker, string traceId)
     {
         var sw = Stopwatch.StartNew();
         var stored = 0;
@@ -236,7 +236,8 @@ public class DispatcherService : IDisposable
             stored: stored,
             timeTakenMs: (int)sw.Elapsed.TotalMilliseconds,
             remainingInQueue: _outboundQueue.Count,
-            traceId: traceId);
+            traceId: traceId,
+            worker: worker);
     }
 
     public void Dispose()
